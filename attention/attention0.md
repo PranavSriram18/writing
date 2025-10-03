@@ -90,9 +90,14 @@ To motivate attention from first principles, let's put ourselves in the shoes of
 
 These roles are implemented by queries, keys, and values:
 
-* **Key (k_u):** each earlier actor `(u, l)` emits a key vector that encodes *what kind of information it has*.
-* **Query (q_t):** our actor emits a query vector that encodes *what kind of information it wants*.
-* **Value (v_u):** each earlier actor also emits a value vector containing the *payload* it can provide.
+* **Key (k_u):** each earlier actor `(u, l)` emits a key vector `k_u` that broadcasts *"this is the kind of information I have"*.
+
+* **Query (q_t):** we emit a query vector `q_t` that encodes *what kind of information we want*.
+
+* **Value (v_u):** each earlier actor also emits a value vector containing the actual *information payload* it provides if we select it.
+
+* We use our query to score the relevance of each of the `t` keys `k1, k2, ..., k_t`,
+and construct a weighted average of the associated values.
 
 ```
 # scores via dot products
@@ -119,7 +124,7 @@ In interpretability terms, this separation is often described as **QK circuits**
 **Computational Complexity**
 
 Now we can see why causal attention is expensive. Consider generating a sequence of `T` tokens. The actor at position `t` must compute attention over all `u ≤ t` positions. Each position `t` involves:
-- Computing query and key projections: `O(D²)` (matrix-vector multiplication with `D × D` weight matrices)
+- Computing query, key, and values given residual stream state: `O(D²)` (matrix-vector multiplication with `D × D` weight matrices)
 - Computing `t` dot products between query and keys: `O(tD)`  
 - Weighted sum of `t` value vectors: `O(tD)`
 
@@ -148,30 +153,20 @@ attention is highly parallel, so actual wall-clock time differs significantly fr
 
 # 4) Attention Heads: Work-Partitioning and Low-Rank Updates
 
-The standard framing of multi-head attention is about **work-partitioning**: keys, queries, and values are sliced along the embedding dimension, heads perform attention independently on their slices, the results are concatenated and then projected using W_O before being added to the residual stream. A key thing to notice is that concatenating the partial results then multiplying by W_O is equivalent to multiplying the partial results by shards of W_O and adding the results. 
+The standard framing of multi-head attention is about **work-partitioning**: keys, queries, and values are sliced along the embedding dimension, heads perform attention independently on their slices, the results are concatenated and then projected using W_O before being added to the residual stream.
 
-A cleaner pseudocode sketch:
-
-```
-for each head h in {1..H}:
-    q_t^h = x_{t,l} · W_Q^h        # head-specific query
-    k_u^h = x_{u,l} · W_K^h        # head-specific key (for u ≤ t)
-    v_u^h = x_{u,l} · W_V^h        # head-specific value
-    scores^h = [ dot(q_t^h, k_u^h) for u ≤ t ]
-    weights^h = softmax(scores^h)
-    z_t^h = Σ_{u≤t} weights^h_u * v_u^h
-
-# combine head outputs
-z_t = concat(z_t^1, …, z_t^H)
-x_{t,l+1} = x_{t,l} + W_O · z_t
-```
-
-This is the usual pipeline: partition the work across heads, then concatenate and project.
-
-There is a second, equally correct way to read the last line that is often more illuminating - the **low-rank additive update** view. Concatenation followed by projection is equivalent to a sum of head-specific writes:
+In pseudocode:
 
 ```
-# equivalent form that exposes additivity by head
+# concat-then-project formulation
+z_t = concat(z_t^1, …, z_t^H)  # concatenate head outputs
+x_{t,l+1} = x_{t,l} + W_O · z_t  # project and add to residual stream
+```
+
+A key thing to notice is that concatenating vectors then multiplying by a matrix is equivalent to sharding the matrix, multiplying vectors by the corresponding shards independently, and adding the results.
+
+```
+# independent-adds formulation
 x_{t,l} ← x_{t,l} + Σ_h (W_O^h · z_t^h)
 ```
 
@@ -179,11 +174,11 @@ Each head writes into the residual through its own projection slice `W_O^h`.
 
 The low-rank additive framing plays a significant role in mechanistic interpretability work. A few consequences:
 
-* **Low-rank, subspace-targeted writes.** A head can only modify the residual within the column space of `W_O^h` - at most rank `d_h`. Heads are low-rank writers into (possibly different) subspaces of the highway.
-* **Limited interaction between heads.** If two heads write largely into disjoint or orthogonal subspaces, later computation may treat their contributions as independent. Overlap enables interaction or interference. The geometry of `W_O` partitions bandwidth.
-* **Implicit memory management.** Updates are additive and persistent. Information written by a head sticks around unless future layers actively overwrite or counter-write it. Since bandwidth is finite (dimension D), writing one thing necessarily crowds others. Some heads compress or move information, others cache patterns for downstream use, and some act as cleaners.
+* **Low-rank, subspace-targeted writes.** A head can only modify the residual within the column space of `W_O^h` - at most rank `d_h`. Heads are low-rank writers into subspaces of the shared stream.
 
-This dual framing - work-partitioning on the surface, low-rank additive updates under the hood - will matter when we adopt the graph view next. It lets us see heads not only as parallel searchers, but as specialized writers competing for limited highway capacity.
+* **Potentially Limited interaction between heads.** If two heads write largely into disjoint or orthogonal subspaces, later computation may treat their contributions as independent. Overlap enables interaction or interference. The geometry of `W_O` partitions bandwidth.
+
+* **Implicit memory management.** Updates are additive and persistent. Information written by a head sticks around unless future layers actively overwrite or counter-write it. Since bandwidth is finite (dimension D), writing one thing necessarily crowds others. Some heads compress or move information, others cache patterns for downstream use, and some act as cleaners.
 
 ---
 
@@ -195,7 +190,10 @@ Information moves through the graph by alternating between two types of edges:
 * **Horizontal moves** (attention): `(τ, l) → (t, l)` where `τ < t`
 * **Vertical moves** (residual): `(t, l) → (t, l+1)`
 
-Even simple cases reveal exponential growth in path count. From `(i, L)` to `(j, L+1)` there are only two paths: Right then Up, or Up then Right. But from `(i, L)` to `(j, L+2)`, the number of possible paths grows quickly, including many interleavings of horizontal and vertical moves. In general, the number of distinct paths grows exponentially with both layer depth and token distance.
+Even simple cases reveal exponential growth in path count. From `(i, L)` to `(j, L+1)` there are only two paths: Right then Up, or Up then Right. But from `(i, L)` to `(j, L+2)`, the number of possible paths grows quickly, including many interleavings of horizontal and vertical moves. 
+
+
+In general, the number of distinct paths grows exponentially with both layer depth and token distance.
 
 This graph framing emphasizes a key insight: transformers do not move information along a single fixed route. Instead, there is an explosion of possible pathways by which signals can travel and mix across the network. This redundancy suggests opportunity for optimization—not every edge may be necessary for effective communication.
 
