@@ -50,13 +50,17 @@ issues, etc.) that don't change the core story
 - We liberally anthropomorphize (talking about actors "wanting" information, etc.)
 - We often depict parallel computations as serial when it aids understanding.
 
+**Notation**
+Our working model will be a causal, decoder-only transformer with `L` layers, hidden dimension
+`D`, and context length `T`. We'll denote input tokens by `w_1, ..., w_T`, and use `x_{t, l}` to denote the representation of token `t` at layer `l`. We use 1-indexing for both layers and tokens; `x_{t, 0}` denotes the representation of the `t`th token before any transformer block but after token embedding and positional encoding.
+
 ---
 
 # 3) The Transformer as a Grid of Information Flow
 
 Our core frame for this article will be to think of transformers in terms of information flowing
 through a grid. The two axes of this grid are time (tokens) and depth (layers). Each node `(t, l)`
-on the grid represents the state of token `t` after layer `l`, which we will denote `x_{t,l}`.
+on the grid represents the state of token `t` after layer `l`, which we denote `x_{t,l}`.  
 
 ![Transformer Grid](transformer-grid-figure)
 
@@ -140,18 +144,17 @@ With this picture in mind, we can make concrete our framing of transformers as a
 * Horizontal edges `(u, l) → (t, l)` represent information flow from earlier to later streams.
 
 
-
 ---
 
 # 4) Anatomy of Causal Attention: QK and OV Circuits
 We'll now recap how ordinary Attention works, albeit with an emphasis on (a) motivating it from first
 principles, and (b) highlighting some aspects particularly salient to the frames we're developing. 
 
-Let's put ourselves in the shoes of a single residual actor at `(t, l)`. Our job is to enrich our own
+Let's put ourselves in the shoes of a single residual actor at `(t, l)`. Our job in the attention step is to enrich our own
 state with information from previous streams. We can break this task down into asking two fundamental
 questions:
 
-<span style="color: #2ecc71; font-style: italic;">Where should we look?</span> Among all nodes `u ≤ t`, which earlier actors are relevant
+<span style="color: #2ecc71; font-style: italic;">Where should we look?</span> Among all nodes `u ≤ t`, which ones are relevant
 to me?
 
 <span style="color: #2ecc71; font-style: italic;">What information should I grab?</span> From each chosen source, what information should I
@@ -210,7 +213,7 @@ Key takeaways:
 
 Now we can see why causal attention is expensive. Consider generating a sequence of `T` tokens. The
 actor at node `t` must compute attention over all nodes `u ≤ t`. Each node `t` involves:
-- Computing query, key, and values given residual stream state: `O(D²)` (matrix-vector multiplication
+- Computing query, key, and value given residual stream state: `O(D²)` (matrix-vector multiplication
   with `D × D` weight matrices)
 - Computing `t` dot products between query and keys: `O(tD)`  
 - Weighted sum of `t` value vectors: `O(tD)`
@@ -225,7 +228,7 @@ Total work = Σ_{t=1}^T O(D² + tD)
 ```
 
 Intuitively, this quadratic scaling makes sense: each residual actor does work proportional to the
-index of its node in the sequence. Early actors do little; later actors do much more. The average
+index of its node in the sequence. The average
 workload grows linearly with sequence length, and we have `T` actors, yielding `O(T²D)` total
 complexity.
 
@@ -247,9 +250,9 @@ wasn't the bottleneck. Their application was language translation of sentences, 
 their context! It's striking to hear becuase in under a decade we've gone from translating sentences
 to thinking about how to push models to reason about corpuses of over a million tokens!
 
-An important detail to keep in mind when discussing the complexity of attention is that attention is
+Another important detail to keep in mind when discussing the complexity of attention is that attention is
 highly parallel, so actual wall-clock time differs significantly from raw FLOP counts. An interesting
-frame for thinking about complexity in a world of increasing compute is: what is the complexity of an
+lens for thinking about complexity in a world of increasing compute is: what is the complexity of an
 algorithm in the limit of infinite parallel compute? For a fascinating deep dive on this, see
 ["Attention is Logarithmic (Actually)"](https://supaiku.com/attention-is-logarithmic).
 
@@ -334,107 +337,92 @@ edges from our graph while still maintaining healthy information flow across str
 # 7) Static Graph Sparsification
 
 A natural idea based on the picture established so far is to sparsify the underlying information flow
-graph, i.e. remove some edges while preserving the ability for information to flow between any pair of
+graph, i.e. remove some edges, while preserving the ability for information to flow between any pair of
 streams t1 and t2. Let's introduce notation to make this concrete. 
 
 <span style="color: #007bff; font-weight: bold;">Neighborhoods</span>
 
 Define `N(t, l)` as the <span style="color: #007bff; font-weight: bold;">attention neighborhood</span> of node `(t, l)`: that is, the set of nodes that the
 actor at `(t, l)` can attend to. The actor at `(t, l)` computes attention only over nodes in
-`N(t, l)`, ignoring all others. In ordinary attention, we have `N(t, l) = {(1, l), (2, l), ..., (t, l)}`. 
+`N(t, l)`, ignoring all others. In ordinary attention, we have `N(t, l) = {(1, l), (2, l), ..., (t, l)}`, i.e. all previous nodes in the current layer. 
 
 We'll see that a large number of efficient attention mechanisms boil down to simply defining `N(t, l)`
-in different ways. 
+in different ways. In particular, these mechanisms **shrink** the neighborhood to some subset of the full ordinary neighborhood. Why does this help? We have the following observation:
+
+Observation: if we fix neighborhood size to some constant `w`, the time complexity of generating `T` tokens is `O(TD^2 + TDw)`. Assuming the second term still dominates, this is a 
+factor of `(T/w)` saving over ordinary attention.
+
+To see this, simply follow the derivation of time complexity in Section 3. For both the steps that contribute to the quadratic dependence on `T` - namely query-key interactions and 
+value sums - we are now doing `O(wD)` work per stream instead of `O(tD)`.
 
 <span style="color: #007bff; font-weight: bold;">Receptive Field</span>
 
 Let's also make concrete the notion of "preserving information flow." We'll define the
-<span style="color: #007bff; font-weight: bold;">receptive field</span> as the set of input tokens that can influence a given node. Formally, the
-receptive field of node `(T, l)` is the set of token indices `i` such that there exists a path in the
-information flow graph from node `(i, 0)` to node `(T, l)`. Equivalently, it's the number of initial
-token nodes that the actor at `(T, l)` can "see" through the network.
+<span style="color: #007bff; font-weight: bold;">receptive field</span> of node `(t, l)` as the set of input tokens that this node can "see" through the network. More
+formally, it is the set of indices `i` such that there exists a path in the
+information flow graph from node `(i, 0)` to node `(t, l)`.
 
-The receptive field determines how much context an actor has access to, while the neighborhood
-`N(t, l)` determines the computational cost per layer. The art of efficient attention is maximizing
-receptive field while minimizing neighborhood size.
+In ordinary attention, the node `(t, l)` can "see" all tokens from 1 through `t`, 
+because it receives information from all previous streams, so the receptive field is the full set `{1, ..., t}`. As we shrink neighborhoods, we will also shrink the receptive fields of some tokens. Thus, there is a tradeoff between neighborhood size and receptive field: smaller
+neighborhoods yield lower attention cost, but also lower receptive field. 
 
-Let's examine the key variants and their trade-offs:
-
-### Vanilla (Full) Attention
-As mentioned, in ordinary causal attention, we have
-`N(t, l) = {(1, l), (2, l), ..., (t, l)}`
-
-Every actor attends to all earlier nodes at the same layer (plus itself). This is the complete causal
-attention pattern—maximum connectivity, maximum cost.
-
-<span style="color: #007bff; font-weight: bold;">Receptive field:</span> `T` at all layers (perfect—every actor can see the entire sequence)  
-<span style="color: #007bff; font-weight: bold;">Complexity:</span> `O(T² D)` as derived in Section 3
-
-Vanilla attention provides the best possible receptive field but pays for it with quadratic scaling.
-Every token node is directly accessible from every later node at each layer.
 
 ### Sliding Window Attention
-
+In Sliding Window Attention, each actor attends only to its `w` most recent neighbors. In symbols, 
 `N(t, l) = {(max(1, t-w+1), l), ..., (t, l)}`
 
-Each actor attends only to its `w` most recent neighbors. The receptive field is bounded locally but
-expands linearly with depth: an actor at layer `L` can indirectly access information from roughly
-`L × w` nodes back.
+**Time Complexity**
+As we've established, since the neighborhood size is fixed to `w`, the time complexity of attention
+will be `O(TD^2 + DTw)`
 
-<span style="color: #007bff; font-weight: bold;">Receptive field:</span> `O(w · l)` at layer `l` (grows linearly with depth)  
-<span style="color: #007bff; font-weight: bold;">Complexity:</span> `O(T w D)` (linear in sequence length!)
+**Receptive Field**
+Consider node `(t, 1)`. It can only see the `w` most recent tokens, i.e. tokens `t, t-1, ..., t-w+1`. If we go up a layer, the receptive field approximately doubles: `(t, 2)` can see back up to `(t-w+1, 1)`, which can see up to `(t-2*w+2, 0)`. Continuing in this manner, we see that the receptive field **grows linearly with depth**, i.e. the size of the receptive field of `(t, l)` is `O(lw)`. Put another way, we need about `T/w` layers to ensure the last stream
+receives information from the first token. 
 
-This is a dramatic improvement: we've broken the quadratic barrier. However, we pay a price in
-connectivity. To establish a path from node `1` to node `T`, we need approximately `T/w` layers. Put
-differently, information propagates at a rate of `w` nodes per layer. For long sequences, this can
-require very deep networks or risk losing access to distant context.
-
-The sliding window represents a fundamental trade-off: computational efficiency for limited receptive
-field growth.
+Sliding window attention thus gives us about a `T/w` complexity saving over ordinary attention, 
+but at the cost of needing about `T/w` layers for information to propagate over the entire 
+sequence. This is not great for long contexts, and so when sliding window attention is used in
+practice, it's typically used in conjunction with ordinary attention (e.g. alternating layers, as in GPT OSS), as opposed to fully replacing it. 
 
 ### Dilated Attention
+Dilated attention is like sliding window attention but with "jumps." Instead of just looking at the last 
+`w` nodes, we'll make jumps of length `d`, the dilation factor. In symbols, 
+`N(t, l) = {(t, l), (t-d, l), (t-2d, l), (t-3d, l), ..., (t - (w-1)*d)}`
 
-`N(t, l) = {(t, l), (t-d, l), (t-2d, l), (t-3d, l), ...}` (for nodes ≥ 1)
-
-Nodes are sampled at regular intervals `d` (the dilation factor). Different layers can use different
-dilations. With carefully chosen dilation schedules across layers, the receptive field expands
-exponentially while keeping edge count linear per layer.
-
-<span style="color: #007bff; font-weight: bold;">Receptive field:</span> `O(d^l)` with exponentially increasing dilations across layers  
-<span style="color: #007bff; font-weight: bold;">Complexity:</span> `O(T D)` if we fix the neighborhood size (e.g., attend to `k` nodes at each layer)
-
-This is the key insight: by using dilation `d = 2` at layer 1, `d = 4` at layer 2, `d = 8` at layer 3,
-etc., we can reach node `1` from node `T` in only `O(log T)` layers. Each layer still does `O(TD)`
-work (constant-sized neighborhoods), giving us the best of both worlds: logarithmic depth to full
-receptive field with only linear cost per layer.
-
-Dilated attention shows that we can have efficient computation <span style="color: #2ecc71; font-style: italic;">and</span> rapid receptive field
-growth—a dramatic improvement over sliding windows.
+Consider what happens when we stack layers with dilation factors `1, w, w^2, ...` . In the first
+layer, each node just talks to its closest `w` neighbors, as in sliding window. But in the second layer,
+each node talks to `w` nodes, whose receptive fields are disjoint and each of size `w`, yielding a receptive field of size O(w^2). Continuing in this manner, we see that receptive field increases *exponentially* with depth, as opposed to linearly in sliding window attention. The time complexity is the same as in sliding window attention, but we now only need `log_{w}T` layers to establish full information flow, as opposed to `T/w` in sliding window attention.
 
 ### Logarithmic Attention
+Instead of using a fixed size jump inside a layer, consider what happens if we use an 
+exponentially increasing jump size within a layer:
+`N(t, l) = {(t, l), (t-1, l), (t-2, l), (t-4, l), (t-8, l), ... (t - 2^k)}`,
+where `k = \floor{log_2(t)}`. 
 
-`N(t, l) = {(t, l), (t-1, l), (t-2, l), (t-4, l), (t-8, l), ...}`
+The neighborhood size is now upper bounded by `log_{2}(T)`, implying a time complexity of
+`O(TD^2 + DTlogT)`. We have the following nice observation: 
 
-Or more generally `N(t, l) = {(t-k^p, l) : k ≥ 0}` for some `p > 0`. This ensures coverage at both short and long ranges with sublinear edge count. A token can attend to recent neighbors (granular, local information) and exponentially spaced distant neighbors (coarse, global information).
+Claim: the receptive field of `(t, l)` where `l > log_{2}(t)` is the full set `{1, l}, ..., {t, l}`. In other words, we achieve full information flow within `log_{2}(t)` layers. 
 
-<span style="color: #007bff; font-weight: bold;">Receptive field:</span> `T` even at a single layer (can reach all nodes directly)  
-<span style="color: #007bff; font-weight: bold;">Complexity:</span> `O(T log(T) D)` since each actor attends to `O(log t)` earlier nodes
+Proof (sketch): the basic idea is that at any point we have the ability to jump right by any
+power of 2. So to get from `(t, 1)` to `(t + d, l)`, simply follow the binary representation of `d`, i.e. write `d` as a sum of powers of 2, and make those jumps. 
 
-Logarithmic attention achieves full receptive field immediately while breaking quadratic scaling. The
-neighborhood size grows only logarithmically with the node index, giving us `O(T log T)` complexity—a
-middle ground between vanilla `O(T²)` and linear patterns like sliding windows. The trade-off is that
-distant tokens are accessible but only at exponentially coarser granularity.
+### Stochastic Masking
+The idea here is to choose random subsets at each layer:
+`N(t, l)` is a random subset of size `w` drawn from `{(1, l), ..., (t, l)}`.
 
-### Random or Stochastic Masking
+As before, the time complexity is `O(TD^2 + TDw)`. Now, why would we expect randomly chosen
+neighborhoods to yield good connectivity patterns? It turns out *random bipartite graphs are
+expanders with high probability*. While a deep dive on this is beyond the scope of this article,
+we'll briefly mention that:
 
-`N(t, l)` is a random subset of size `r` drawn from `{(1, l), ..., (t, l)}`
+1. The field of [spectral graph theory](TODO) quantifies notions of "graphs with good information
+flow" we've been alluding to, via eigenvalues of matrices associated with the graph.
 
-Which edges are present varies per sequence or batch. While any individual edge is unreliable, connectivity is preserved in expectation across the randomness. This trades deterministic paths for probabilistic coverage.
+2. Expanders are a special class of graphs that are sparse but preserve good information flow.
 
-<span style="color: #007bff; font-weight: bold;">Receptive field:</span> `T` in expectation (any node can be sampled)  
-<span style="color: #007bff; font-weight: bold;">Complexity:</span> `O(T r D)` where `r` is the fixed sample size
-
-Random attention provides probabilistic full coverage at linear cost (if `r` is constant). The key insight is that while no single path is guaranteed, the aggregate effect across random samples approximates dense connectivity. This works surprisingly well in practice when `r` is chosen appropriately.
+3. Random bipartite graphs, generated with appropriate hyperparameters, are expanders with high
+probability.
 
 ### Global Tokens
 
@@ -480,75 +468,87 @@ critical information pathways while maximizing computational savings.
 
 ---
 
-# 8) Summary and Next Steps
+# 8) Efficient Attention Families [Placeholder]
 
-We've journeyed from viewing transformers as stacks of layers to understanding them as grids of
-information flow, where residual streams collaborate through attention to build up representations
-capable of predicting the next token. We've seen how vanilla attention's quadratic cost stems from
-dense connectivity in the information flow graph, and explored how various static sparsification
-patterns—sliding windows, dilated attention, logarithmic patterns, global tokens—offer different
-trade-offs between computational efficiency and receptive field growth.
+Below we sketch the main families of efficient attention through the lenses we developed: nodes and
+actors on a grid, neighborhoods `N(t, l)`, receptive fields, and low-rank additive writes. Each
+subsection frames a problem and a "what if" idea, connects to our graph view, and points to example
+methods.
 
-<span style="color: #007bff; font-weight: bold;">The Limitation of Static Sparsification</span>
+- <span style="color: #007bff; font-weight: bold;">Static sparsification.</span>
+  Problem: vanilla `N(t, l)` is dense, giving quadratic work. What if we predefine smaller
+  neighborhoods that still preserve useful paths in the information-flow graph? We prune horizontal
+  edges to shrink `N(t, l)` while tracking receptive field growth. Patterns include windows and global
+  nodes (Longformer), dilations and block patterns (BigBird, H-Transformer-1D), and logarithmic hops.
 
-Yet static sparsification has an inherent limitation: it's <span style="color: #2ecc71; font-style: italic;">content-blind</span>. The neighborhood
-`N(t, l)` is fixed before we even see the sequence. A token asking "where is the relevant context for
-me?" gets the same answer regardless of what it actually needs. Consider an actor at position 500
-trying to understand a pronoun reference: the antecedent might be 2 tokens back or 200 tokens back,
-but static patterns can't adapt to this. We're forced to choose neighborhoods that work reasonably
-well <span style="color: #2ecc71; font-style: italic;">on average</span> across all sequences, potentially wasting computation on irrelevant nodes while
-missing crucial distant context.
+- <span style="color: #007bff; font-weight: bold;">Dynamic sparsification and routing.</span>
+  Problem: static `N(t, l)` is <span style="color: #2ecc71; font-style: italic;">content-blind</span>. What if the actor's query dynamically decides
+  which earlier nodes matter, constructing `N(t, l)` on the fly? Challenge: how to identify important
+  nodes without full query-key scoring over all nodes. Examples: Reformer with LSH attention,
+  Routing Transformers, top-k or kNN-based selection, approximate nearest neighbor search.
 
-<span style="color: #007bff; font-weight: bold;">Towards Content-Aware Sparsification</span>
+- <span style="color: #007bff; font-weight: bold;">Kernelized or linearized attention.</span>
+  Problem: direct pairwise communication is costly. What if actors communicate through
+  <span style="color: #2ecc71; font-style: italic;">auxiliary content nodes</span> in an implicit feature space, turning many-to-many edges into
+  many-to-few-to-many routes in our graph? Streams write to and read from a shared kernel space,
+  mediating communication and enabling near-linear time. Examples: Performer (FAVOR+), Linear
+  Transformer, CosFormer.
 
-This naturally leads us to ask: <span style="color: #2ecc71; font-style: italic;">what if</span> we could make `N(t, l)` depend on the actual content
-of the sequence? What if each actor could dynamically decide, based on its query, which earlier nodes
-are worth attending to, pruning the rest? This is the realm of <span style="color: #007bff; font-weight: bold;">dynamic sparsification</span>. Unlike
-static patterns that trim the graph uniformly, dynamic approaches would let the graph reshape itself
-sequence by sequence, even token by token, guided by learned or heuristic relevance criteria.
+- <span style="color: #007bff; font-weight: bold;">Low-rank and landmark approximations.</span>
+  Problem: horizontal communication has high effective rank. What if we compress it by writing and
+  reading through a small set of basis directions or landmark nodes? This matches our low-rank head
+  writes view. Examples: Linformer (low-rank projections), Nyströmformer (inducing landmarks),
+  Perceiver IO (latent bottlenecks).
 
-The challenge, of course, is that computing which nodes are relevant seems to require... computing
-attention scores, which is precisely the expensive operation we're trying to avoid! How can we
-identify the important nodes without looking at all of them? This chicken-and-egg problem is at the
-heart of making dynamic sparsification practical.
+- <span style="color: #007bff; font-weight: bold;">Hierarchical and segment-based schemes.</span>
+  Problem: long paths across the grid are costly. What if we build multi-scale graphs, with strong
+  local edges inside blocks and sparse bridges between blocks? This increases receptive field with
+  depth while limiting per-layer neighborhoods. Examples: hierarchical pyramids, blockwise attention
+  with cross-block connectors.
 
-<span style="color: #007bff; font-weight: bold;">Communication Through Intermediaries</span>
+- <span style="color: #007bff; font-weight: bold;">Recurrent and memory-augmented variants.</span>
+  Problem: maintaining long context across segments. What if we add long vertical edges by caching or
+  compressing node states, so later actors can read summaries from earlier segments? This extends the
+  grid upward in time. Examples: Transformer-XL, Compressive Transformer, memory slots.
 
-There's another intriguing direction that subtly shifts our entire framing. So far, we've thought of
-attention as <span style="color: #2ecc71; font-style: italic;">direct communication</span> between streams: actor `t` reaches back to actor `u` and pulls
-information directly. But what if streams could communicate <span style="color: #2ecc71; font-style: italic;">indirectly</span>, through shared
-intermediaries?
+- <span style="color: #007bff; font-weight: bold;">Retrieval-augmented attention.</span>
+  Problem: relevant context may not be present in the local grid. What if actors can query external
+  hubs that store content-indexed nodes? Conceptually this adds off-grid hub nodes that connect to many
+  on-grid nodes. Examples: RETRO, kNN-LM, RAG-style retrieval.
 
-Imagine instead of streams shouting across the grid to each other, they all deposit information into
-a shared space—a kind of distributed memory or message board. Each actor writes a compressed
-signature of what it knows into this space, and later actors read from it, reconstructing the
-information they need without directly addressing any specific earlier stream. The communication
-becomes mediated, factored through these intermediate representations.
+- <span style="color: #007bff; font-weight: bold;">KV-efficiency and head-sharing.</span>
+  Problem: storing and moving per-head keys and values is expensive. What if heads share K or V to cut
+  bandwidth without changing the graph structure? Examples: Multi-Query Attention (MQA), Grouped-Query
+  Attention (GQA) as used in large LLMs.
 
-This may sound abstract, but it turns out to be a powerful lens for understanding
-<span style="color: #007bff; font-weight: bold;">kernelized attention</span> methods. The "intermediaries" are the implicit or explicit feature maps
-that kernels create, and the shared space is the feature space these maps live in. Streams interact
-not through direct query-key matching, but through how their kernel representations overlap in this
-intermediate space. This perspective connects attention to a rich body of work on kernel methods,
-sketching algorithms, and low-rank approximations.
+- <span style="color: #007bff; font-weight: bold;">Exact IO-aware kernels.</span>
+  Problem: attention is often memory bound. What if we process the graph in carefully chosen tiles that
+  keep KV on-chip and stream queries through, preserving exact neighborhoods but improving traversal of
+  the grid? This is like chunking the horizontal edges into cache-friendly blocks. Examples:
+  FlashAttention and successors, fused and tiled kernels.
 
-<span style="color: #007bff; font-weight: bold;">The Road Ahead</span>
+- <span style="color: #007bff; font-weight: bold;">Compression and pruning.</span>
+  Problem: some edges and writes contribute little. What if we prune heads or edges based on measured
+  importance, reallocating bandwidth to the most useful subspaces? This leverages the low-rank additive
+  head view. Examples: attention head pruning, structured sparsity, distillation.
 
-In the articles to follow, we'll dive deeper into these ideas:
+Together, these families can be read as different ways to reshape the information-flow graph, shrink
+or share neighborhoods, and exploit low-rank structure. Next we will dig into how these ideas can be
+made practical.
 
-* How can we achieve content-aware, dynamic sparsification efficiently? What are the practical
-  algorithms that break the quadratic barrier while adapting to sequence content?
+---
 
-* What does it mean for attention to be "kernelized"? How do methods like Performers, Linear
-  Attention, and others use kernel approximations to achieve linear complexity? 
+# 9) Summary and Next Steps
 
-* How do we think about the expressiveness trade-offs when we move away from vanilla attention's
-  dense, content-specific patterns toward approximations and sparsity?
+We reframed transformers as grids of information flow. Nodes `(t, l)` carry states `x_{t,l}`, and
+actors collaborate via attention to build the next-token predictor. We tied vanilla attention's
+`O(T²D)` cost to dense connectivity and explored static sparsification as a first step toward
+efficiency by shrinking neighborhoods `N(t, l)` while preserving critical paths.
 
-For now, we've established the essential mental models: transformers as information flow graphs,
-attention as the interface for cross-stream collaboration, and static sparsification as a first step
-toward efficiency. The next frontier is making these graphs not just sparse, but <span style="color: #2ecc71; font-style: italic;">smart</span>—adapting
-to content, leveraging mathematical structure, and finding clever ways to route information without
-paying quadratic costs.
+From here, we will:
+- Dive into content-aware sparsification that adapts `N(t, l)` to the sequence
+- Unpack kernelized attention as mediated communication in a shared feature space
+- Examine trade-offs between accuracy, expressiveness, and efficiency across these methods
 
-The journey continues.
+With these mental models in place, we are ready to build beyond static patterns and make sparsity
+smarter and more adaptive.
