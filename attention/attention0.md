@@ -28,7 +28,7 @@ of these terms don't make sense yet!)
 
 ---
 
-## Prerequisites and Notes on Style
+## 2. Prerequisites and Notes on Style
 
 **Prerequisites.** 
 This article assumes you're comfortable with the basics of how Transformers work, particularly
@@ -56,7 +56,7 @@ Our working model will be a causal, decoder-only transformer with `L` layers, hi
 
 ---
 
-# 3) The Transformer as a Grid of Information Flow
+# 3. The Transformer as a Grid of Information Flow
 
 Our core frame for this article will be to think of transformers in terms of information flowing
 through a grid. The two axes of this grid are time (tokens) and depth (layers). Each node `(t, l)`
@@ -146,7 +146,7 @@ With this picture in mind, we can make concrete our framing of transformers as a
 
 ---
 
-# 4) Anatomy of Causal Attention: QK and OV Circuits
+# 4. Anatomy of Causal Attention: QK and OV Circuits
 We'll now recap how ordinary Attention works, albeit with an emphasis on (a) motivating it from first
 principles, and (b) highlighting some aspects particularly salient to the frames we're developing. 
 
@@ -258,7 +258,7 @@ algorithm in the limit of infinite parallel compute? For a fascinating deep dive
 
 ---
 
-# 5) Attention Heads: Work-Partitioning and Low-Rank Updates
+# 5. Attention Heads: Work-Partitioning and Low-Rank Updates
 
 The standard framing of multi-head attention is about <span style="color: #007bff; font-weight: bold;">work-partitioning</span>: keys, queries, and
 values are sliced along the embedding dimension, heads perform attention independently on their
@@ -306,7 +306,7 @@ consequences:
 
 ---
 
-# 6) The Combinatorics of Attention-Based Information Flows
+# 6. The Combinatorics of Attention-Based Information Flows
 
 With the information-flow graph picture established, we can now ask an interesting question: in how
 many ways can information travel from one residual stream state `(t1, l1)` to another `(t2, l2)`? 
@@ -327,7 +327,7 @@ information from the first stream can take to reach the last stream.
 
 More generally, any path from `(t, l)` to `(t + p, l + q)` requires a total of `p` horizontal moves
 and `q` vertical moves. The number of ways to arrange these moves is the binomial coefficient
-`C(p+q, p)`. By Stirling's approximation, this grows exponentially with `p + q`. In particular, as we
+`C(p+q, p)`. By Stirling's approximation (TODO - link), this grows exponentially with `p + q`. In particular, as we
 scale context length and depth, we quickly reach an astronomical number of paths from the beginning of
 the first stream to the end of the final stream. This suggests possible redundancy: can we remove some
 edges from our graph while still maintaining healthy information flow across streams?
@@ -349,11 +349,11 @@ actor at `(t, l)` can attend to. The actor at `(t, l)` computes attention only o
 We'll see that a large number of efficient attention mechanisms boil down to simply defining `N(t, l)`
 in different ways. In particular, these mechanisms **shrink** the neighborhood to some subset of the full ordinary neighborhood. Why does this help? We have the following observation:
 
-Observation: if we fix neighborhood size to some constant `w`, the time complexity of generating `T` tokens is `O(TD^2 + TDw)`. Assuming the second term still dominates, this is a 
+Observation: if we fix neighborhood size to some constant `w`, the time complexity of generating `T` tokens is `O(TD^2 + TDw) = O(TDw)`, assuming the second term still dominates. This is a 
 factor of `(T/w)` saving over ordinary attention.
 
 To see this, simply follow the derivation of time complexity in Section 3. For both the steps that contribute to the quadratic dependence on `T` - namely query-key interactions and 
-value sums - we are now doing `O(wD)` work per stream instead of `O(tD)`.
+value sums - we are now doing `O(wD)` work for the `t`th stream instead of `O(tD)`.
 
 <span style="color: #007bff; font-weight: bold;">Receptive Field</span>
 
@@ -416,7 +416,7 @@ neighborhoods to yield good connectivity patterns? It turns out *random bipartit
 expanders with high probability*. While a deep dive on this is beyond the scope of this article,
 we'll briefly mention that:
 
-1. The field of [spectral graph theory](TODO) quantifies notions of "graphs with good information
+1. The field of [spectral graph theory](TODO - link) quantifies notions of "graphs with good information
 flow" we've been alluding to, via eigenvalues of matrices associated with the graph.
 
 2. Expanders are a special class of graphs that are sparse but preserve good information flow.
@@ -424,97 +424,73 @@ flow" we've been alluding to, via eigenvalues of matrices associated with the gr
 3. Random bipartite graphs, generated with appropriate hyperparameters, are expanders with high
 probability.
 
-### Global Tokens
+### Global Tokens & Sink Tokens
+Global tokens can be used in conjunction with other static sparsification methods. The basic idea is to augment the neighborhood of each node with a common set of nodes called global tokens:
+`N(t, l) = {(g_1, l), (g_2, l), ..., (g_k, l)} ∪ PrevNeighborhood(t, l)`
 
-`N(t, l) = {(g_1, l), (g_2, l), ..., (g_k, l)} ∪ LocalPattern(t, l)`
-
-Every actor attends to a small set of designated global token nodes `g_1, ..., g_k` (often the first
-few nodes) in addition to some local pattern. These global tokens act as information hubs, providing
-shortcut paths for long-range communication. Any two nodes can exchange information with at most 2 hops
-through a global node.
-
-<span style="color: #007bff; font-weight: bold;">Receptive field:</span> `T` (all nodes connect through global hubs)  
-<span style="color: #007bff; font-weight: bold;">Complexity:</span> `O(T D)` if `k` and the local pattern size are constant
-
-Global tokens create a hub-and-spoke topology: instead of every node connecting to every other, they
-all connect to a few central hubs. This achieves full receptive field with linear complexity by
-accepting a 2-hop path between arbitrary nodes. The global tokens become information bottlenecks that
-aggregate and broadcast context.
-
-### Sink Tokens
-
-`N(t, l) = {(s_1, l), (s_2, l), ..., (s_m, l)} ∪ LocalPattern(t, l)`
-
-Similar to global tokens, but sink tokens `s_1, ..., s_m` are special nodes designed to absorb
-attention mass when other edges are pruned. This provides a fallback destination that prevents
-attention weights from concentrating inappropriately on irrelevant nodes when the desired target is
-outside `N(t, l)`.
-
-<span style="color: #007bff; font-weight: bold;">Receptive field:</span> Depends on `LocalPattern`, but sinks don't expand it  
-<span style="color: #007bff; font-weight: bold;">Complexity:</span> `O(T D)` if `m` and the local pattern size are constant
-
-Sink tokens address a practical problem: when using sparse attention, the softmax must still normalize
-over <span style="color: #2ecc71; font-style: italic;">some</span> set of nodes. If all relevant nodes are pruned from `N(t, l)`, attention mass has nowhere
-meaningful to go and may concentrate on irrelevant nearby tokens. Sinks provide a designated "nowhere"
-that can safely absorb this mass without corrupting the information flow. They're less about expanding
-receptive field and more about maintaining attention pattern stability in sparse regimes.
-
-<span style="color: #007bff; font-weight: bold;">Key Insight</span>
-
-All these patterns are <span style="color: #007bff; font-weight: bold;">static</span>: `N(t, l)` is determined ahead of time based only on node
-indices, not on the actual content of the sequence. They represent fixed blueprints for trimming the
-graph without fully collapsing its connectivity. The art lies in choosing `N(t, l)` to preserve the
-critical information pathways while maximizing computational savings.
+This technique is used in GPT-OSS in the sliding window attention layers. The theoretical basis for
+global tokens is well explained by [taking a graph view](TODO - link), and sink tokens in
+particular were first advocated in the somewhat provocative post [Attention is Off By One](TODO - link).
 
 ---
 
-# 8) Efficient Attention Families [Placeholder]
+# 8. The Landscape of Efficient Attention Mechanisms
 
-Below we sketch the main families of efficient attention through the lenses we developed: nodes and
-actors on a grid, neighborhoods `N(t, l)`, receptive fields, and low-rank additive writes. Each
-subsection frames a problem and a "what if" idea, connects to our graph view, and points to example
-methods.
+So far we've developed a mental framework for understanding what's going on in transformer models,
+and used this framework to understand one particular family of efficient attention techniques as static sparsification of the information flow graph. We'll now zoom out a bit, and briefly sketch the broader landscape of efficient attention techniques,
+situating each within the framework we've developed.
 
-- <span style="color: #007bff; font-weight: bold;">Static sparsification.</span>
-  Problem: vanilla `N(t, l)` is dense, giving quadratic work. What if we predefine smaller
-  neighborhoods that still preserve useful paths in the information-flow graph? We prune horizontal
-  edges to shrink `N(t, l)` while tracking receptive field growth. Patterns include windows and global
-  nodes (Longformer), dilations and block patterns (BigBird, H-Transformer-1D), and logarithmic hops.
+<span style="color: #007bff; font-weight: bold;">8.1 Static Sparsification</span>
+This was the focus of the previous section. The core problem addressed by these techniques
+is the quadratic cost involved with all query-key and attention weight-value interactions, and solutions involve statically defining `N(t, l)` to reduce communication in both QK and OV circuits while preserving receptive field growth. 
 
-- <span style="color: #007bff; font-weight: bold;">Dynamic sparsification and routing.</span>
-  Problem: static `N(t, l)` is <span style="color: #2ecc71; font-style: italic;">content-blind</span>. What if the actor's query dynamically decides
-  which earlier nodes matter, constructing `N(t, l)` on the fly? Challenge: how to identify important
-  nodes without full query-key scoring over all nodes. Examples: Reformer with LSH attention,
-  Routing Transformers, top-k or kNN-based selection, approximate nearest neighbor search.
+Notable techniques and papers: sliding windows and global
+nodes (Longformer), dilations and block patterns (BigBird, H-Transformer-1D), and TODO - mention more papers here.
 
-- <span style="color: #007bff; font-weight: bold;">Kernelized or linearized attention.</span>
-  Problem: direct pairwise communication is costly. What if actors communicate through
-  <span style="color: #2ecc71; font-style: italic;">auxiliary content nodes</span> in an implicit feature space, turning many-to-many edges into
-  many-to-few-to-many routes in our graph? Streams write to and read from a shared kernel space,
-  mediating communication and enabling near-linear time. Examples: Performer (FAVOR+), Linear
-  Transformer, CosFormer.
+<span style="color: #007bff; font-weight: bold;">8.2 Dynamic Sparsification and Routing</span>
+Problem: static sparsification is <span style="color: #2ecc71; font-style: italic;">content-blind</span>, and involves potentially imbuing models with our imperfect structural priors about sequence modeling. The idea of *dynamic* sparsity is to let the model decide what edges matter based on the content of the sequence being processed, thereby constructing `N(t, l)` 
+dynamically per-token.
 
-- <span style="color: #007bff; font-weight: bold;">Low-rank and landmark approximations.</span>
-  Problem: horizontal communication has high effective rank. What if we compress it by writing and
-  reading through a small set of basis directions or landmark nodes? This matches our low-rank head
-  writes view. Examples: Linformer (low-rank projections), Nyströmformer (inducing landmarks),
-  Perceiver IO (latent bottlenecks).
+Core challenge and solutions: How does an actor actually decide which nodes matter to it, without
+scoring every previous key? Some ideas include: 
+* LSH attention (Reformer) (TODO - add citation/link for reformer): use locality sensitive
+hashing (TODO - link) to nearby bucket queries and keys together, and only attend within buckets.
+* Routing Transformers (TODO - link): learn cluster assignments or router tokens that group related positions.
+* Approximate nearest neighbor methods: use ANN indices to retrieve top-k keys per query.
+* Deepseek's Dynamic Sparse Attention: use two rounds. The first is a lightweight scoring
+mechanism that is used to define `N(t, l)`, while the second does a full attention score
+computation only on the neighborhood.
 
-- <span style="color: #007bff; font-weight: bold;">Hierarchical and segment-based schemes.</span>
-  Problem: long paths across the grid are costly. What if we build multi-scale graphs, with strong
-  local edges inside blocks and sparse bridges between blocks? This increases receptive field with
-  depth while limiting per-layer neighborhoods. Examples: hierarchical pyramids, blockwise attention
-  with cross-block connectors.
+<span style="color: #007bff; font-weight: bold;">8.3 Kernel and Low Rank Methods: Factorized Communication.</span>
+Recall the standard algebraic formulation of attention:
+TODO - insert equation
 
-- <span style="color: #007bff; font-weight: bold;">Recurrent and memory-augmented variants.</span>
-  Problem: maintaining long context across segments. What if we add long vertical edges by caching or
-  compressing node states, so later actors can read summaries from earlier segments? This extends the
-  grid upward in time. Examples: Transformer-XL, Compressive Transformer, memory slots.
+Many efficiency methods revisit this equation: they approximate the softmax kernel, approximate the
+attention matrix by a low rank matrix, and/or reorder the multiplications so that K^TV is computed
+first and QK^T is never materialized.
 
-- <span style="color: #007bff; font-weight: bold;">Retrieval-augmented attention.</span>
-  Problem: relevant context may not be present in the local grid. What if actors can query external
-  hubs that store content-indexed nodes? Conceptually this adds off-grid hub nodes that connect to many
-  on-grid nodes. Examples: RETRO, kNN-LM, RAG-style retrieval.
+**Complementary graph view**
+From the perspective of information flow, these methods introduce intermediary nodes that mediate communication.
+Instead of every node directly attending to every other, tokens first broadcast their values into a small set of shared basis nodes, and later receive aggregated information back from them.
+The result is a factor graph: communication happens in two hops, node → intermediary → node.
+
+This view unifies several families: 
+
+Kernelized attention (Performer, Linear Transformer, CosFormer) (TODO - links) – intermediate basis channels defined by feature maps.
+
+Low-rank and landmark methods (Linformer, Nyströmformer, Perceiver IO) (TODO - links) – explicit landmark or latent nodes that summarize many streams.
+
+
+<span style="color: #007bff; font-weight: bold;">Graph Augmentation: Hubs, Highways, and Compression</span>
+A number of efficient attention techniques can be viewed as augmenting a graph dominated by local
+communication with global connectivity structure, such as long-range highways, summary blocks,
+and global hubs. Examples include: 
+* Caching past hidden states or compressing them into summaries (Transformer XL, Compressive 
+Transformer)
+* Multi-scale graphs (hierarchical pyramids, blockwise attention with cross-block connectors)
+* Retrieval-Augmented Generation, which can be viewed as augmenting our grid graph with off-grid
+nodes
+
 
 - <span style="color: #007bff; font-weight: bold;">KV-efficiency and head-sharing.</span>
   Problem: storing and moving per-head keys and values is expensive. What if heads share K or V to cut
@@ -526,15 +502,6 @@ methods.
   keep KV on-chip and stream queries through, preserving exact neighborhoods but improving traversal of
   the grid? This is like chunking the horizontal edges into cache-friendly blocks. Examples:
   FlashAttention and successors, fused and tiled kernels.
-
-- <span style="color: #007bff; font-weight: bold;">Compression and pruning.</span>
-  Problem: some edges and writes contribute little. What if we prune heads or edges based on measured
-  importance, reallocating bandwidth to the most useful subspaces? This leverages the low-rank additive
-  head view. Examples: attention head pruning, structured sparsity, distillation.
-
-Together, these families can be read as different ways to reshape the information-flow graph, shrink
-or share neighborhoods, and exploit low-rank structure. Next we will dig into how these ideas can be
-made practical.
 
 ---
 
