@@ -30,20 +30,24 @@ of these terms don't make sense yet!)
 
 ## 2. Prerequisites and Notes on Style
 
-**Prerequisites.** 
-This article assumes you're comfortable with the basics of how Transformers work, particularly
-causal self-attention. If you need a refresher, we recommend [Andrej Karpathy's video](PLACEHOLDER) and [3Blue1Brown's video](PLACEHOLDER) as excellent starting points.
+**Prerequisites**
 
-**Scope.** 
+This article assumes you're comfortable with the basics of how Transformers work, particularly
+causal self-attention. If you need a refresher, we recommend [Andrej Karpathy's video](TODO) and [3Blue1Brown's video](TODO) as excellent starting points.
+
+**Scope**
+
 We focus exclusively on causal, decoder-only transformers (like GPT-style models). Throughout this article, we use "Vanilla Attention" to refer to ordinary causal attention, the standard
 self-attention mechanism used in these models.
 
-**Inspiration.** 
+**Inspiration**
+
 This article is heavily inspired by [Anthropic's Mathematical Framework for
-Transformer Circuits](PLACEHOLDER). One of the goals of this article is to provide a gentler onramp
+Transformer Circuits](TODO). One of the goals of this article is to provide a gentler onramp
 to some of the deep insights expounded in that work.
 
-**Philosophy.** 
+**Philosophy**
+
 Our emphasis is on building intuition rather than mathematical rigor or implementation details. To this end:
 - We omit architectural and implementation details (like normalizers, regularizers, numerical
 issues, etc.) that don't change the core story
@@ -51,6 +55,7 @@ issues, etc.) that don't change the core story
 - We often depict parallel computations as serial when it aids understanding.
 
 **Notation**
+
 Our working model will be a causal, decoder-only transformer with `L` layers, hidden dimension
 `D`, and context length `T`. We'll denote input tokens by \(w_1, \ldots, w_T\), and use \(x_{t,l}\) to denote the representation of token \(t\) at layer \(l\). We use 1-indexing for both layers and tokens; \(x_{t,0}\) denotes the representation of the \(t\)th token before any transformer block but after token embedding and positional encoding.
 
@@ -58,6 +63,7 @@ Our working model will be a causal, decoder-only transformer with `L` layers, hi
 
 # 3. The Transformer as a Grid of Information Flow
 
+### <span style="color: #007bff; font-weight: bold;"> 3.1 Introducing the Grid View </span>
 Our core frame for this article will be to think of transformers in terms of information flowing
 through a grid. The two axes of this grid are time (tokens) and depth (layers). Each node `(t, l)`
 on the grid represents the state of token `t` after layer `l`, which we denote \(x_{t,l}\).  
@@ -84,7 +90,7 @@ Transformer Circuits paper](https://transformer-circuits.pub/2021/framework/inde
 we will adopt in this article is a shift from thinking about transformers as stacks of rows (layers),
 and instead as a series of parallel columns (residual streams).
 
-<span style="color: #007bff; font-weight: bold;">**The Journey of a Single Token**</span>
+### <span style="color: #007bff; font-weight: bold;">**3.2 The Journey of a Single Token**</span>
 
 Given a sequence of input tokens \(w_1, \ldots, w_T\), focus on how a single token \(w_t\) flows through its
 residual stream. 
@@ -104,7 +110,7 @@ token through a progressive sequence of representations that culminate in a suff
  the distribution of the next token. Importantly, this highway has a <span style="color: #007bff; font-weight: bold;">fixed bandwidth</span>, dictated by
  the dimensionality `D` of the residual stream state. 
 
-<span style="color: #007bff; font-weight: bold;">**Residual Actors and Attention as an Interface**</span>
+### <span style="color: #007bff; font-weight: bold;">**3.3 Residual Actors and Attention as an Interface**</span>
 
 Let's now unpack what happens inside a layer. We can think of the two core operations, namely
 Attention and the MLP, as representing <span style="color: #2ecc71; font-style: italic;">communication</span> with other streams, and
@@ -132,7 +138,7 @@ steps, into a state that can predict the next token. But actors are not solitary
 also leave behind signals that future actors can read. In this way, the actors collaborate: each has
 an individual goal but also helps others.
 
-<span style="color: #007bff; font-weight: bold;">**The grid as a graph**</span>
+### <span style="color: #007bff; font-weight: bold;">**3.4 The grid as a graph**</span>
 
 With this picture in mind, we can make concrete our framing of transformers as a graph.
 
