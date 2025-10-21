@@ -57,7 +57,7 @@ issues, etc.) that don't change the core story
 **Notation**
 
 Our working model will be a causal, decoder-only transformer with `L` layers, hidden dimension
-`D`, and context length `T`. We'll denote input tokens by \(w_1, \ldots, w_T\), and use \(x_{t,l}\) to denote the representation of token \(t\) at layer \(l\). We use 1-indexing for both layers and tokens; \(x_{t,0}\) denotes the representation of the \(t\)th token before any transformer block but after token embedding and positional encoding.
+`D`, and context length `T`. We'll denote input tokens by $w_1, \ldots, w_T$, and use $x_{t,l}$ to denote the representation of token $t$ at layer $l$. We use 1-indexing for both layers and tokens; $x_{t,0}$ denotes the representation of the $t$th token before any transformer block but after token embedding and positional encoding.
 
 ---
 
@@ -66,7 +66,7 @@ Our working model will be a causal, decoder-only transformer with `L` layers, hi
 ### <span style="color: #007bff; font-weight: bold;"> 3.1 Introducing the Grid View </span>
 Our core frame for this article will be to think of transformers in terms of information flowing
 through a grid. The two axes of this grid are time (tokens) and depth (layers). Each node `(t, l)`
-on the grid represents the state of token `t` after layer `l`, which we denote \(x_{t,l}\).  
+on the grid represents the state of token `t` after layer `l`, which we denote $x_{t,l}$.  
 
 ![Transformer Grid](transformer-grid-figure)
 
@@ -92,15 +92,15 @@ and instead as a series of parallel columns (residual streams).
 
 ### <span style="color: #007bff; font-weight: bold;">**3.2 The Journey of a Single Token**</span>
 
-Given a sequence of input tokens \(w_1, \ldots, w_T\), focus on how a single token \(w_t\) flows through its
+Given a sequence of input tokens $w_1, \ldots, w_T$, focus on how a single token $w_t$ flows through its
 residual stream. 
 
-1. The token enters its stream as the sum of its word <span style="color: #007bff; font-weight: bold;">**embedding vector**</span> \(e_t\) and
-   <span style="color: #007bff; font-weight: bold;">**positional embedding**</span> \(p_t\). 
+1. The token enters its stream as the sum of its word <span style="color: #007bff; font-weight: bold;">**embedding vector**</span> $e_t$ and
+   <span style="color: #007bff; font-weight: bold;">**positional embedding**</span> $p_t$. 
 
 2. Each layer computes an update that is <span style="color: #007bff; font-weight: bold;">added</span> to the stream - hence the term
    <span style="color: #2ecc71; font-style: italic;">residual</span>. The token's representation evolves through a sequence of intermediate states:
-   \(x_{t,0}, x_{t,1}, \ldots, x_{t,L}\).
+   $x_{t,0}, x_{t,1}, \ldots, x_{t,L}$.
 
 3. At the final layer, the representation is multiplied by the unembedding matrix to produce logits
    over the vocabulary, which are then normalized into a probability distribution for the next token.
@@ -125,7 +125,7 @@ x_{t,l+1} = z_{t,l} + MLP(z_{t,l})
 ```
 
 * The <span style="color: #007bff; font-weight: bold;">**collaboration step**</span> uses attention to gather information from earlier streams
-  \((u, l)\) with \(u \le t\). 
+  $(u, l)$ with $u \le t$. 
 
 * The <span style="color: #007bff; font-weight: bold;">**solo step**</span> uses an MLP to compute purely on its own state, refining or
   transforming what it already has.
@@ -169,16 +169,16 @@ import?
 
 These roles are implemented by queries, keys, and values:
 
-* <span style="color: #007bff; font-weight: bold;">Key (\(k_u\))</span>: each earlier actor \((u, l)\) emits a key vector \(k_u\) that broadcasts
+* <span style="color: #007bff; font-weight: bold;">Key ($k_u$)</span>: each earlier actor $(u, l)$ emits a key vector $k_u$ that broadcasts
   <span style="color: #2ecc71; font-style: italic;">"this is the kind of information I have"</span>.
 
-* <span style="color: #007bff; font-weight: bold;">Query (\(q_t\))</span>: we emit a query vector \(q_t\) that encodes <span style="color: #2ecc71; font-style: italic;">what kind of information we
+* <span style="color: #007bff; font-weight: bold;">Query ($q_t$)</span>: we emit a query vector $q_t$ that encodes <span style="color: #2ecc71; font-style: italic;">what kind of information we
   want</span>.
 
-* <span style="color: #007bff; font-weight: bold;">Value (\(v_u\))</span>: each earlier actor also emits a value vector containing the actual
+* <span style="color: #007bff; font-weight: bold;">Value ($v_u$)</span>: each earlier actor also emits a value vector containing the actual
   <span style="color: #2ecc71; font-style: italic;">information payload</span> it provides if we select it.
 
-* We use our query to score the relevance of each of the \(t\) keys \(k_1, k_2, \ldots, k_t\), and construct a
+* We use our query to score the relevance of each of the $t$ keys $k_1, k_2, \ldots, k_t$, and construct a
   <span style="color: #2ecc71; font-style: italic;">weighted average</span> of the associated values.
 
 In pseudocode:
@@ -218,30 +218,30 @@ Key takeaways:
 
 ### <span style="color: #007bff; font-weight: bold;">**4.2 Computational Complexity**</span>
 
-Consider generating a sequence of \(T\) tokens. The
-actor at node \(t\) must compute attention over all nodes \(u \le t\). Each node \(t\) involves:
-- Computing query, key, and value given residual stream state: \(\mathcal{O}(D^2)\) (matrix-vector multiplication
-  with \(D \times D\) weight matrices)
-- Computing \(t\) dot products between query and keys: \(\mathcal{O}(tD)\)  
-- Weighted sum of \(t\) value vectors: \(\mathcal{O}(tD)\)
+Consider generating a sequence of $T$ tokens. The
+actor at node $t$ must compute attention over all nodes $u \le t$. Each node $t$ involves:
+- Computing query, key, and value given residual stream state: $\mathcal{O}(D^2)$ (matrix-vector multiplication
+  with $D \times D$ weight matrices)
+- Computing $t$ dot products between query and keys: $\mathcal{O}(tD)$  
+- Weighted sum of $t$ value vectors: $\mathcal{O}(tD)$
 
-So the actor at node \(t\) does \(\mathcal{O}(D^2 + tD)\) work. Summing across all nodes:
+So the actor at node $t$ does $\mathcal{O}(D^2 + tD)$ work. Summing across all nodes:
 
 ```
-Total work = \(\sum_{t=1}^T \mathcal{O}(D^2 + tD)\) 
-           = \(\mathcal{O}(TD^2) + \mathcal{O}\big(D \cdot \sum_{t=1}^T t\big)\) 
-           = \(\mathcal{O}(TD^2) + \mathcal{O}(T^2D)\)
-           = \(\mathcal{O}(T^2D)\)  [when \(T > D\), which holds in modern applications]
+Total work = $\sum_{t=1}^T \mathcal{O}(D^2 + tD)$ 
+           = $\mathcal{O}(TD^2) + \mathcal{O}\big(D \cdot \sum_{t=1}^T t\big)$ 
+           = $\mathcal{O}(TD^2) + \mathcal{O}(T^2D)$
+           = $\mathcal{O}(T^2D)$  [when $T > D$, which holds in modern applications]
 ```
 
 Intuitively, this quadratic scaling makes sense: each residual actor does work proportional to the
 index of its node in the sequence. The average
-workload grows linearly with sequence length, and we have \(T\) actors, yielding \(\mathcal{O}(T^2D)\) total
+workload grows linearly with sequence length, and we have $T$ actors, yielding $\mathcal{O}(T^2D)$ total
 complexity.
 
-As a first approximation, this \(\mathcal{O}(T^2D)\) complexity is the central bottleneck in scaling transformers
+As a first approximation, this $\mathcal{O}(T^2D)$ complexity is the central bottleneck in scaling transformers
 to long contexts, though as we'll see shortly, there is some nuance to this picture. Much of the
-attention variant literature aims to attack this \(\mathcal{O}(T^2D)\) term. 
+attention variant literature aims to attack this $\mathcal{O}(T^2D)$ term. 
 
 An important thing to note is that both the QK and OV circuits contribute to this quadratic cost: the
 linear work per stream comes from both interacting with all previous keys (QK circuit) and from
@@ -315,25 +315,25 @@ consequences:
 # 6. The Combinatorics of Attention-Based Information Flows
 
 With the information-flow graph picture established, we can now ask an interesting question: in how
-many ways can information travel from one residual stream state \((t_1, l_1)\) to another \((t_2, l_2)\)? 
+many ways can information travel from one residual stream state $(t_1, l_1)$ to another $(t_2, l_2)$? 
 
 Recall that information moves through the graph by alternating between two types of edges:
-* <span style="color: #007bff; font-weight: bold;">Horizontal moves</span> (attention): \((u, l) \to (t, l)\) where \(u < t\)
-* <span style="color: #007bff; font-weight: bold;">Vertical moves</span> (residual): \((t, l) \to (t, l+1)\)
+* <span style="color: #007bff; font-weight: bold;">Horizontal moves</span> (attention): $(u, l) \to (t, l)$ where $u < t$
+* <span style="color: #007bff; font-weight: bold;">Vertical moves</span> (residual): $(t, l) \to (t, l+1)$
 
 Let's look at a simple case. In how many ways can we travel from the first stream in one layer to the
-last stream in the next layer, i.e. from \((1, l)\) to \((T, l+1)\)? There are a few types of paths: 
-* All the way Right, then Up: \((1, l) \to (T, l) \to (T, l+1)\)
-* Up, then all the way Right: \((1, l) \to (1, l+1) \to (T, l+1)\)
-* Part way Right, Up, rest of the way Right: \((1, l) \to (k, l) \to (k, l+1) \to (T, l+1)\)
+last stream in the next layer, i.e. from $(1, l)$ to $(T, l+1)$? There are a few types of paths: 
+* All the way Right, then Up: $(1, l) \to (T, l) \to (T, l+1)$
+* Up, then all the way Right: $(1, l) \to (1, l+1) \to (T, l+1)$
+* Part way Right, Up, rest of the way Right: $(1, l) \to (k, l) \to (k, l+1) \to (T, l+1)$
 
-In the third case, there are \(T-2\) choices for \(k\) (namely \(k = 2, 3, \ldots, T-1\)), for a total of \(T\)
+In the third case, there are $T-2$ choices for $k$ (namely $k = 2, 3, \ldots, T-1$), for a total of $T$
 paths across all three cases. So even in a single layer network, there are already multiple paths
 information from the first stream can take to reach the last stream.
 
-More generally, any path from \((t, l)\) to \((t + p, l + q)\) requires a total of \(p\) horizontal moves
-and \(q\) vertical moves. The number of ways to arrange these moves is the binomial coefficient
-\(\binom{p+q}{p}\). By [Stirling's approximation](https://en.wikipedia.org/wiki/Stirling%27s_approximation), this grows exponentially with \(p + q\). In particular, as we
+More generally, any path from $(t, l)$ to $(t + p, l + q)$ requires a total of $p$ horizontal moves
+and $q$ vertical moves. The number of ways to arrange these moves is the binomial coefficient
+$\binom{p+q}{p}$. By [Stirling's approximation](https://en.wikipedia.org/wiki/Stirling%27s_approximation), this grows exponentially with $p + q$. In particular, as we
 scale context length and depth, we quickly reach an astronomical number of paths from the beginning of
 the first stream to the end of the final stream. This suggests possible redundancy: can we remove some
 edges from our graph while still maintaining healthy information flow across streams?
@@ -349,18 +349,18 @@ streams \(t_1\) and \(t_2\). Let's introduce notation to make this concrete.
 ### 7.1 Neighborhoods and Receptive Fields
 <span style="color: #007bff; font-weight: bold;">**Neighborhoods**</span>
 
-Define \(N(t, l)\) as the <span style="color: #007bff; font-weight: bold;">attention neighborhood</span> of node \((t, l)\): that is, the set of nodes that the
-actor at \((t, l)\) can attend to. The actor at \((t, l)\) computes attention only over nodes in
-\(N(t, l)\), ignoring all others. In ordinary attention, we have \(N(t, l) = \{(1, l), (2, l), \ldots, (t, l)\}\), i.e. all previous nodes in the current layer. 
+Define $N(t, l)$ as the <span style="color: #007bff; font-weight: bold;">attention neighborhood</span> of node $(t, l)$: that is, the set of nodes that the
+actor at $(t, l)$ can attend to. The actor at $(t, l)$ computes attention only over nodes in
+$N(t, l)$, ignoring all others. In ordinary attention, we have $N(t, l) = \{(1, l), (2, l), \ldots, (t, l)\}$, i.e. all previous nodes in the current layer. 
 
 We'll see that a large number of efficient attention mechanisms boil down to simply defining `N(t, l)`
 in different ways. In particular, these mechanisms **shrink** the neighborhood to some subset of the full ordinary neighborhood. Why does this help? We have the following observation:
 
-Observation: if we fix neighborhood size to some constant `w`, the time complexity of generating `T` tokens is \(\mathcal{O}(TD^2 + TDw) = \mathcal{O}(TDw)\), assuming the second term still dominates. This is a 
-factor of \(T/w\) saving over ordinary attention.
+Observation: if we fix neighborhood size to some constant `w`, the time complexity of generating `T` tokens is $\mathcal{O}(TD^2 + TDw) = \mathcal{O}(TDw)$, assuming the second term still dominates. This is a 
+factor of $T/w$ saving over ordinary attention.
 
 To see this, simply follow the derivation of time complexity in Section 3. For both the steps that contribute to the quadratic dependence on `T` - namely query-key interactions and 
-value sums - we are now doing \(\mathcal{O}(wD)\) work for the `t`th stream instead of \(\mathcal{O}(tD)\).
+value sums - we are now doing $\mathcal{O}(wD)$ work for the `t`th stream instead of $\mathcal{O}(tD)$.
 
 <span style="color: #007bff; font-weight: bold;">**Receptive Field**</span>
 
