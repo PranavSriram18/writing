@@ -150,6 +150,7 @@ With this picture in mind, we can make concrete our framing of transformers as a
 We'll now recap how ordinary Attention works, albeit with an emphasis on (a) motivating it from first
 principles, and (b) highlighting some aspects particularly salient to the frames we're developing. 
 
+### 4.1 Attention Recap
 Let's put ourselves in the shoes of a single residual actor at `(t, l)`. Our job in the attention step is to enrich our own
 state with information from previous streams. We can break this task down into asking two fundamental
 questions:
@@ -209,9 +210,9 @@ Key takeaways:
 * <span style="color: #007bff; font-weight: bold;">Additive integration.</span> The imported content is added to the residual state; nothing is
   overwritten outright.
 
-<span style="color: #007bff; font-weight: bold;">Computational Complexity</span>
+### <span style="color: #007bff; font-weight: bold;">4.2 Computational Complexity</span>
 
-Now we can see why causal attention is expensive. Consider generating a sequence of \(T\) tokens. The
+Consider generating a sequence of \(T\) tokens. The
 actor at node \(t\) must compute attention over all nodes \(u \le t\). Each node \(t\) involves:
 - Computing query, key, and value given residual stream state: \(\mathcal{O}(D^2)\) (matrix-vector multiplication
   with \(D \times D\) weight matrices)
@@ -241,7 +242,7 @@ linear work per stream comes from both interacting with all previous keys (QK ci
 (weighted) summing all previous values. Thus, any attempt to break the quadratic barrier must address
 both QK and OV circuits. 
 
-<span style="color: #007bff; font-weight: bold;">Aside: Nuances on Complexity</span>
+### <span style="color: #007bff; font-weight: bold;">4.3 Aside: Nuances on Complexity</span>
 
 Interestingly, in a [talk](https://www.youtube.com/watch?v=rBCqOTEfxvg&t=1080s) shortly after the original
 Transformer paper, Łukasz Kaiser mentioned being nervous about the cost being quadratic in context
