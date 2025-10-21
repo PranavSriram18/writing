@@ -362,10 +362,10 @@ factor of \(T/w\) saving over ordinary attention.
 To see this, simply follow the derivation of time complexity in Section 3. For both the steps that contribute to the quadratic dependence on `T` - namely query-key interactions and 
 value sums - we are now doing \(\mathcal{O}(wD)\) work for the `t`th stream instead of \(\mathcal{O}(tD)\).
 
-<span style="color: #007bff; font-weight: bold;">Receptive Field</span>
+<span style="color: #007bff; font-weight: bold;">**Receptive Field**</span>
 
 Let's also make concrete the notion of "preserving information flow." We'll define the
-<span style="color: #007bff; font-weight: bold;">receptive field</span> of node `(t, l)` as the set of input tokens that this node can "see" through the network. More
+<span style="color: #007bff; font-weight: bold;">**receptive field**</span> of node `(t, l)` as the set of input tokens that this node can "see" through the network. More
 formally, it is the set of indices `i` such that there exists a path in the
 information flow graph from node `(i, 0)` to node `(t, l)`.
 
