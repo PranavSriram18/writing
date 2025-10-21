@@ -333,12 +333,13 @@ edges from our graph while still maintaining healthy information flow across str
 
 ---
 
-# 7) Static Graph Sparsification
+# 7. Static Graph Sparsification
 
 A natural idea based on the picture established so far is to sparsify the underlying information flow
 graph, i.e. remove some edges, while preserving the ability for information to flow between any pair of
 streams \(t_1\) and \(t_2\). Let's introduce notation to make this concrete. 
 
+### 7.1 Neighborhoods and Receptive Fields
 <span style="color: #007bff; font-weight: bold;">Neighborhoods</span>
 
 Define \(N(t, l)\) as the <span style="color: #007bff; font-weight: bold;">attention neighborhood</span> of node \((t, l)\): that is, the set of nodes that the
@@ -366,7 +367,7 @@ because it receives information from all previous streams, so the receptive fiel
 neighborhoods yield lower attention cost, but also lower receptive field. 
 
 
-### Sliding Window Attention
+### 7.2 Sliding Window Attention
 In Sliding Window Attention, each actor attends only to its `w` most recent neighbors. In symbols, 
 `N(t, l) = {(max(1, t-w+1), l), ..., (t, l)}`
 
@@ -383,7 +384,7 @@ but at the cost of needing about `T/w` layers for information to propagate over 
 sequence. This is not great for long contexts, and so when sliding window attention is used in
 practice, it's typically used in conjunction with ordinary attention (e.g. alternating layers, as in GPT OSS), as opposed to fully replacing it. 
 
-### Dilated Attention
+### 7.3 Dilated Attention
 Dilated attention is like sliding window attention but with "jumps." Instead of just looking at the last 
 `w` nodes, we'll make jumps of length `d`, the dilation factor. In symbols, 
 `N(t, l) = {(t, l), (t-d, l), (t-2d, l), (t-3d, l), ..., (t - (w-1)*d)}`
@@ -392,7 +393,7 @@ Consider what happens when we stack layers with dilation factors `1, w, w^2, ...
 layer, each node just talks to its closest `w` neighbors, as in sliding window. But in the second layer,
 each node talks to `w` nodes, whose receptive fields are disjoint and each of size `w`, yielding a receptive field of size O(w^2). Continuing in this manner, we see that receptive field increases *exponentially* with depth, as opposed to linearly in sliding window attention. The time complexity is the same as in sliding window attention, but we now only need `log_{w}T` layers to establish full information flow, as opposed to `T/w` in sliding window attention.
 
-### Logarithmic Attention
+### 7.4 Logarithmic Attention
 Instead of using a fixed size jump inside a layer, consider what happens if we use an 
 exponentially increasing jump size within a layer:
 `N(t, l) = {(t, l), (t-1, l), (t-2, l), (t-4, l), (t-8, l), ... (t - 2^k)}`,
@@ -406,7 +407,7 @@ Claim: the receptive field of `(t, l)` where `l > log_{2}(t)` is the full set `{
 Proof (sketch): the basic idea is that at any point we have the ability to jump right by any
 power of 2. So to get from `(t, 1)` to `(t + d, l)`, simply follow the binary representation of `d`, i.e. write `d` as a sum of powers of 2, and make those jumps. 
 
-### Stochastic Masking
+### 7.5 Stochastic Masking
 The idea here is to choose random subsets at each layer:
 `N(t, l)` is a random subset of size `w` drawn from `{(1, l), ..., (t, l)}`.
 
@@ -423,7 +424,7 @@ notions of "graphs with good information flow" we've been alluding to, via eigen
 3. Random bipartite graphs, generated with appropriate hyperparameters, [are expanders with high
 probability](https://theory.epfl.ch/courses/topicstcs/Lecture3.pdf).
 
-### Global Tokens & Sink Tokens
+### 7.6 Global Tokens & Sink Tokens
 Global tokens can be used in conjunction with other static sparsification methods. The basic idea is to augment the neighborhood of each node with a common set of nodes called global tokens:
 `N(t, l) = {(g_1, l), (g_2, l), ..., (g_k, l)} ∪ PrevNeighborhood(t, l)`
 
@@ -440,7 +441,7 @@ So far we've developed a mental framework for understanding what's going on in t
 and used this framework to understand one particular family of efficient attention techniques as static sparsification of the underlying information flow graph. We'll now zoom out a bit, and briefly sketch the broader
 landscape of efficient attention techniques, situating each within the framework we've developed.
 
-<span style="color: #007bff; font-weight: bold;">### 8.1 Static Sparsification</span>
+### <span style="color: #007bff; font-weight: bold;">8.1 Static Sparsification</span>
 This was the focus of the previous section. The core problem addressed by these techniques is the
 quadratic cost involved with all query-key and attention weight-value interactions, and solutions
 involve statically defining `N(t, l)` to reduce communication in both QK and OV circuits while
@@ -449,7 +450,7 @@ preserving receptive field growth.
 Notable techniques and papers: sliding windows and global
 nodes ([Longformer](https://arxiv.org/abs/2004.05150)), dilations and block patterns ([BigBird](https://arxiv.org/abs/2007.14062), [H-Transformer-1D](https://arxiv.org/abs/2107.11906)), strided/block-sparse layouts ([Sparse Transformer](https://arxiv.org/abs/1904.10509)), star-shaped global hubs (Star-Transformer), and hierarchical dilations across layers (LongNet). (TODO - add links)
 
-<span style="color: #007bff; font-weight: bold;">### 8.2 Dynamic Sparsification and Routing</span>
+### <span style="color: #007bff; font-weight: bold;"> 8.2 Dynamic Sparsification and Routing</span>
 Problem: static sparsification is <span style="color: #2ecc71; font-style: italic;">content-blind</span>, and involves potentially imbuing models with our imperfect structural priors about sequence modeling. An arguably
 more "[bitter lesson](TODO -link)-pilled" idea is *dynamic* sparsity: let the model decide what edges
 matter based on the content of the sequence being processed, thereby constructing `N(t, l)`
@@ -466,7 +467,7 @@ and keys together, and only attend within buckets.
 ("lightning indexer") that is used to define `N(t, l)`, while the second does a full attention
 score computation only on the neighborhood.
 
-<span style="color: #007bff; font-weight: bold;">### 8.3 Kernel and Low Rank Methods: Factorized Communication.</span>
+### <span style="color: #007bff; font-weight: bold;">8.3 Kernel and Low Rank Methods: Factorized Communication.</span>
 Recall the standard algebraic formulation of attention:
 
 ```
@@ -490,7 +491,7 @@ their keys and queries.
 * Low-rank and landmark methods ([Linformer](https://arxiv.org/abs/2006.04768), [Nyströmformer](https://arxiv.org/abs/2102.03902), [Perceiver IO](https://arxiv.org/abs/2107.14795)) – explicit landmark or latent nodes that summarize many streams.
 
 
-<span style="color: #007bff; font-weight: bold;">### 8.4 Graph Augmentation: Hubs, Highways, and Compression</span>
+### <span style="color: #007bff; font-weight: bold;"> 8.4 Graph Augmentation: Hubs, Highways, and Compression</span>
 A number of efficient attention techniques can be viewed as augmenting a graph dominated by *local*
 communication with *global* connectivity structure, such as long-range highways, summary blocks,
 and global hubs. Examples include: 
@@ -499,14 +500,14 @@ and global hubs. Examples include:
 * [Retrieval-Augmented Generation](https://arxiv.org/abs/2005.11401), which can be viewed as augmenting our grid graph with off-grid nodes.
 
 
-<span style="color: #007bff; font-weight: bold;">### 8.5 Exact IO-aware kernels.</span>
+### <span style="color: #007bff; font-weight: bold;"> 8.5 Exact IO-aware kernels.</span>
 In this article we've mostly focused on conceptual aspects of transformers, whereas efficient
 real-world implementations require contending with the realities of modern hardware. Nevertheless,
 the framework we've developed provides a helpful lens for understanding techniques like [Flash
 Attention](https://arxiv.org/abs/2205.14135) and [Paged Attention](https://arxiv.org/abs/2309.06180). These can be viewed as defining **tilings** and **traversals** of the grid graph that compute attention in a *data-locality-aware* way, ensuring information moves efficiently across the hardware as well as across the model.
 
 
-- <span style="color: #007bff; font-weight: bold;">### 8.6 KV-efficiency and head-sharing.</span>
+### <span style="color: #007bff; font-weight: bold;">8.6 KV-efficiency and head-sharing.</span>
 A widely used idea in frontier models is to share keys and values across attention heads, while
 keeping the queries separate. Key techniques include [Multi Query Attention](https://arxiv.org/abs/1911.02150) and [Grouped Query Attention](https://arxiv.org/pdf/2305.13245).
 
