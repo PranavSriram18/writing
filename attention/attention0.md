@@ -330,6 +330,8 @@ last stream in the next layer, i.e. from $(1, l)$ to $(T, l+1)$? There are a few
 * Up, then all the way right: $(1, l) \to (1, l+1) \to (T, l+1)$
 * Part way right, up, rest of the way right: $(1, l) \to (k, l) \to (k, l+1) \to (T, l+1)$
 
+![Combinatorics Figure](combinatorics-figure.svg)
+
 In the third case, there are $T-2$ choices for $k$ (namely $k = 2, 3, \ldots, T-1$), for a total of
 $T$ paths across all three cases. So even in a single layer network, there are already multiple paths
 information from the first stream can take to reach the last stream.
