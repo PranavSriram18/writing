@@ -230,9 +230,9 @@ So the actor at node $t$ does $\mathcal{O}(D^2 + tD)$ work. Summing across all n
 is:
 
 $$
-\sum_{t=1}^T \mathcal{O}(D^2 + tD)
-  = \mathcal{O}(TD^2) + \mathcal{O}\!\left(D \sum_{t=1}^T t\right)
-  = \mathcal{O}(TD^2) + \mathcal{O}(T^2D)
+\sum_{t=1}^T \mathcal{O}(D^2 + tD) \\
+  = \mathcal{O}(TD^2) + \mathcal{O}\left(D \sum_{t=1}^T t\right) \\
+  = \mathcal{O}(TD^2) + \mathcal{O}(T^2D) \\
   = \mathcal{O}(T^2D) \quad \text{for } T > D.
 $$
 
@@ -260,6 +260,7 @@ Finally, as a personal aside, a pet peeve of mine is when the complexity of atte
 as $O(T²)$, silently treating the embedding dimension as a constant. This is problematic for two
 reasons. First, the embedding dimension is in the thousands for frontier models, so it's not exactly
 a small constant. Second, a sparse attention algorithm that actually addressed the $D$ term and reduced complexity to say, $O(T^2 log D)$, could still represent a meaningful advance despite still being quadratic in $T$.
+
 ---
 
 # 6. Attention Heads: Work-Partitioning and Low-Rank Updates
@@ -379,10 +380,12 @@ In Sliding Window Attention, each actor attends only to its `w` most recent neig
 `N(t, l) = {(max(1, t-w+1), l), ..., (t, l)}`
 
 **Time Complexity**
+
 As we've established, since the neighborhood size is fixed to `w`, the time complexity of attention
 will be `O(TD^2 + DTw)`
 
 **Receptive Field**
+
 Consider node `(t, 1)`. It can only see the `w` most recent tokens, i.e. tokens `t, t-1, ..., t-w+1`. If we go up a layer, the receptive field approximately doubles: `(t, 2)` can see back up to `(t-w+1, 1)`, which can see up to `(t-2*w+2, 0)`. Continuing in this manner, we see that the receptive field **grows linearly with depth**, i.e. the size of the receptive field of `(t, l)` is `O(lw)`. Put another way, we need about `T/w` layers to ensure the last stream
 receives information from the first token. 
 
@@ -398,7 +401,8 @@ Dilated attention is like sliding window attention but with "jumps." Instead of 
 
 Consider what happens when we stack layers with dilation factors `1, w, w^2, ...` . In the first
 layer, each node just talks to its closest `w` neighbors, as in sliding window. But in the second layer,
-each node talks to `w` nodes, whose receptive fields are disjoint and each of size `w`, yielding a receptive field of size O(w^2). Continuing in this manner, we see that receptive field increases *exponentially* with depth, as opposed to linearly in sliding window attention. The time complexity is the same as in sliding window attention, but we now only need `log_{w}T` layers to establish full information flow, as opposed to `T/w` in sliding window attention.
+each node talks to `w` nodes, whose receptive fields are disjoint and each of size `w`, yielding a receptive field of size $O(w^2)$. Continuing in this manner, we see that receptive field increases *exponentially* with depth, as opposed to linearly in sliding window attention. The time complexity
+is the same as in sliding window attention, but we now only need `log_{w}T` layers to establish full information flow, as opposed to $T/w$ in sliding window attention.
 
 ### 8.4 Logarithmic Attention
 Instead of using a fixed size jump inside a layer, consider what happens if we use an 
@@ -516,7 +520,8 @@ Attention](https://arxiv.org/abs/2205.14135) and [Paged Attention](https://arxiv
 
 ### <span style="color: #007bff; font-weight: bold;">**9.6 KV-efficiency and head-sharing.**</span>
 A widely used idea in frontier models is to share keys and values across attention heads, while
-keeping the queries separate. Key techniques include [Multi Query Attention](https://arxiv.org/abs/1911.02150) and [Grouped Query Attention](https://arxiv.org/pdf/2305.13245).
+keeping the queries separate. Key techniques include [Multi Query Attention](https://arxiv.org/abs/1911.02150) and [Grouped Query Attention](https://arxiv.org/pdf/2305.13245). Doing so shrinks KV
+cache memory by a factor of the group size.
 
 Some intuition for why we can get away with this comes from thinking about QK and OV circuits: it's the *combination* of queries and keys that determines where we look; thus, to ensure that different 
 heads can look in different places, it suffices to vary just one of them across heads. Analogously
@@ -525,3 +530,4 @@ for the OV circuit - even with shared values, different heads can still write to
 ---
 
 # 10. Summary and Next Steps
+TODO
