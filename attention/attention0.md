@@ -142,7 +142,7 @@ goal: compute information useful for those future actors.
 This framing provides a first-principles view of how models trained for next-token prediction can
 actually plan ahead, a phenomenon verified empirically in [work by Anthropic](https://www.anthropic.com/research/tracing-thoughts-language-model).
 
-### <span style="color: #007bff">**3.5 The grid as a graph**</span>
+### <span style="color: #007bff";>**3.5 The grid as a graph**</span>
 
 With this picture in mind, we can make concrete our framing of transformers as a graph.
 
@@ -151,7 +151,7 @@ With this picture in mind, we can make concrete our framing of transformers as a
 * <span style="color: #007bff">**Vertical edges**</span> \((t, l) \to (t, l+1)\) represent the
 evolution of a token's representation via residual updates between layers.
 
-* <span style="color: #007bff">**Horizontal edges**</span> \((u, l) \to (t, l)\) represent information flow from earlier to later streams.
+* <span style="color: #007bff;">**Horizontal edges**</span> \((u, l) \to (t, l)\) represent information flow from earlier to later streams.
 
 In this view, a transformer is a two-dimensional graph of collaborating actors, passing information forward in time through attention, and upwards in depth through residual updates.
 ---
@@ -178,7 +178,7 @@ These questions correspond directly to the roles played by keys, queries, and va
 * <span style="color: #007bff;">**Query ($q_t$)**</span>: we emit a query vector $q_t$ that encodes <span style="color: #2ecc71; font-style: italic;">what kind of information we
   want</span>.
 
-* <span style="color: #007bff;">Value ($v_u$)</span>: each earlier actor also emits a value vector containing the actual
+* <span style="color: #007bff;">**Value ($v_u$)**</span>: each earlier actor also emits a value vector containing the actual
   <span style="color: #2ecc71; font-style: italic;">information payload</span> it provides if we select it.
 
 * We use our query to score the relevance of each of the $t$ keys $k_1, k_2, \ldots, k_t$, and construct a
@@ -215,11 +215,11 @@ Key takeaways for mechanistic interpretability:
   operation, which is part of the QK circuit (determining the attention pattern). If we fix the
   attention pattern, the entire attention operation becomes a linear function of its inputs.
 
-* <span style="color: #007bff; font-weight: bold;">**Additive integration.**</span> The imported content is added to the residual state; nothing is
+* <span style="color: #007bff;">**Additive integration.**</span> The imported content is added to the residual state; nothing is
   overwritten outright.
 
 # 5. Computational Complexity of Attention
-### <span style="color: #007bff; font-weight: bold;">**5.1 Complexity Derivation**</span>
+### <span style="color: #007bff;">**5.1 Complexity Derivation**</span>
 Consider generating a sequence of $T$ tokens. The actor at node $t$ must compute attention over all nodes $u \le t$. Each node $t$ involves:
 - Computing query, key, and value given residual stream state: $\mathcal{O}(D^2)$ (matrix-vector multiplication
   with $D \times D$ weight matrices)
@@ -321,8 +321,8 @@ many distinct paths can information take from one residual stream state $(t_1, l
 $(t_2, l_2)$? 
 
 Recall that information moves through the graph by alternating between two types of edges:
-* <span style="color: #007bff; font-weight: bold;">Horizontal moves</span> (attention): $(u, l) \to (t, l)$ where $u < t$
-* <span style="color: #007bff; font-weight: bold;">Vertical moves</span> (residual): $(t, l) \to (t, l+1)$
+* <span style="color: #007bff;">Horizontal moves</span> (attention): $(u, l) \to (t, l)$ where $u < t$
+* <span style="color: #007bff;">Vertical moves</span> (residual): $(t, l) \to (t, l+1)$
 
 Let's look at a simple case. In how many ways can we travel from the first stream in one layer to the
 last stream in the next layer, i.e. from $(1, l)$ to $(T, l+1)$? There are a few types of paths: 
@@ -348,7 +348,7 @@ Let's introduce some notation to make the ideas hinted at at the end of the prev
 concrete. 
 
 ### 8.1 Neighborhoods and Receptive Fields
-<span style="color: #007bff; font-weight: bold;">**Neighborhoods**</span>
+<span style="color: #007bff;">**Neighborhoods**</span>
 
 Define $N(t, l)$ as the <span style="color: #007bff; font-weight: bold;">attention neighborhood</span> of node $(t, l)$: that is, the set of nodes that the
 actor at $(t, l)$ can attend to. The actor at $(t, l)$ computes attention only over nodes in
