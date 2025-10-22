@@ -325,21 +325,23 @@ Recall that information moves through the graph by alternating between two types
 * <span style="color: #007bff;">Vertical moves</span> (residual): $(t, l) \to (t, l+1)$
 
 Let's look at a simple case. In how many ways can we travel from the first stream in one layer to the
-last stream in the next layer, i.e. from $(1, l)$ to $(T, l+1)$? There are a few types of paths: 
+last stream in the next layer, i.e. from $(1, l)$ to $(T, l+1)$?
+
+![Combinatorics Figure](combinatorics-figure.svg)
+
+There are three categories of paths in this case: 
 * All the way right, then up: $(1, l) \to (T, l) \to (T, l+1)$
 * Up, then all the way right: $(1, l) \to (1, l+1) \to (T, l+1)$
 * Part way right, up, rest of the way right: $(1, l) \to (k, l) \to (k, l+1) \to (T, l+1)$
-
-![Combinatorics Figure](combinatorics-figure.svg)
 
 In the third case, there are $T-2$ choices for $k$ (namely $k = 2, 3, \ldots, T-1$), for a total of
 $T$ paths across all three cases. So even in a single layer network, there are already multiple paths
 information from the first stream can take to reach the last stream.
 
-More generally, any path from $(t, l)$ to $(t + p, l + q)$ requires a total of $p$ horizontal moves
-and $q$ vertical moves. The number of ways to arrange these moves is the binomial coefficient
-$\binom{p+q}{p}$. By [Stirling's approximation](https://en.wikipedia.org/wiki/Stirling%27s_approximation), this grows exponentially with $p + q$. In particular, as we
-scale context length and depth, the number of information pathways quickly becomes astronomical. 
+More generally, any path from $(t, l)$ to $(t + p, l + q)$ requires $q$ vertical moves and a total
+horizontal displacement of $p$. The number of ways to arrange these moves is the binomial
+coefficient $\binom{p+q}{p}$. By [Stirling's approximation](https://en.wikipedia.org/wiki/Stirling%27s_approximation), this grows exponentially with $p + q$. Hence, as we
+scale context length and depth, the number of information pathways quickly becomes astronomical.
 This combinatorial explosion suggests possible redundancy: do we really need all the edges in our
 graph? Can we prune some edges, while still maintaining healthy information flow?
 
@@ -380,6 +382,8 @@ neighborhoods yield lower attention cost, but also lower receptive field.
 ### 8.2 Sliding Window Attention
 In Sliding Window Attention, each actor attends only to its `w` most recent neighbors. In symbols, 
 `N(t, l) = {(max(1, t-w+1), l), ..., (t, l)}`
+
+![Sliding-Window](sliding-window.svg)
 
 **Time Complexity**
 

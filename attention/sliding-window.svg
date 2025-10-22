@@ -1,0 +1,149 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 850 680" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;">
+  <!-- Title -->
+  <text x="425" y="30" text-anchor="middle" font-size="20" font-weight="bold" fill="#2c3e50">
+    Sliding Window Attention (w=3)
+  </text>
+  
+  <!-- Axis Labels -->
+  <text x="425" y="640" text-anchor="middle" font-size="16" fill="#34495e" font-weight="600">
+    Time (Tokens) →
+  </text>
+  
+  <text x="15" y="360" text-anchor="middle" font-size="16" fill="#34495e" font-weight="600" transform="rotate(-90, 15, 360)">
+    Depth (Layers) →
+  </text>
+  
+  <!-- Arrow markers for different streams -->
+  <defs>
+    <marker id="arrow-stream5" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+      <polygon points="0 0, 10 3, 0 6" fill="#3498db" />
+    </marker>
+    <marker id="arrow-stream4" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+      <polygon points="0 0, 10 3, 0 6" fill="#27ae60" />
+    </marker>
+  </defs>
+  
+  <!-- Grid nodes -->
+  <!-- Layer 0 (tokens) -->
+  <g id="layer-0">
+    <circle cx="100" cy="540" r="8" fill="#ecf0f1" stroke="#95a5a6" stroke-width="2"/>
+    <circle cx="200" cy="540" r="8" fill="#ecf0f1" stroke="#95a5a6" stroke-width="2"/>
+    <circle cx="300" cy="540" r="8" fill="#ecf0f1" stroke="#95a5a6" stroke-width="2"/>
+    <circle cx="400" cy="540" r="8" fill="#ecf0f1" stroke="#95a5a6" stroke-width="2"/>
+    <circle cx="500" cy="540" r="8" fill="#ecf0f1" stroke="#95a5a6" stroke-width="2"/>
+    <circle cx="600" cy="540" r="8" fill="#ecf0f1" stroke="#95a5a6" stroke-width="2"/>
+    
+    <text x="80" y="545" text-anchor="end" font-size="14" fill="#7f8c8d" font-style="italic">x₁,₀</text>
+    <text x="180" y="545" text-anchor="end" font-size="14" fill="#7f8c8d" font-style="italic">x₂,₀</text>
+    <text x="280" y="545" text-anchor="end" font-size="14" fill="#7f8c8d" font-style="italic">x₃,₀</text>
+    <text x="380" y="545" text-anchor="end" font-size="14" fill="#7f8c8d" font-style="italic">x₄,₀</text>
+    <text x="480" y="545" text-anchor="end" font-size="14" fill="#7f8c8d" font-style="italic">x₅,₀</text>
+    <text x="580" y="545" text-anchor="end" font-size="14" fill="#7f8c8d" font-style="italic">x₆,₀</text>
+  </g>
+  
+  <!-- Layer 1 (lighter, for context) -->
+  <g id="layer-2" opacity="0.3">
+    <circle cx="100" cy="440" r="7" fill="#ecf0f1" stroke="#95a5a6" stroke-width="1.5"/>
+    <circle cx="200" cy="440" r="7" fill="#ecf0f1" stroke="#95a5a6" stroke-width="1.5"/>
+    <circle cx="300" cy="440" r="7" fill="#ecf0f1" stroke="#95a5a6" stroke-width="1.5"/>
+    <circle cx="400" cy="440" r="7" fill="#ecf0f1" stroke="#95a5a6" stroke-width="1.5"/>
+    <circle cx="500" cy="440" r="7" fill="#ecf0f1" stroke="#95a5a6" stroke-width="1.5"/>
+    <circle cx="600" cy="440" r="7" fill="#ecf0f1" stroke="#95a5a6" stroke-width="1.5"/>
+  </g>
+  
+  <!-- Layer 2 (main focus) -->
+  <g id="layer-3">
+    <circle cx="100" cy="320" r="8" fill="#ecf0f1" stroke="#95a5a6" stroke-width="2"/>
+    <circle cx="200" cy="320" r="8" fill="#ecf0f1" stroke="#95a5a6" stroke-width="2"/>
+    <circle cx="300" cy="320" r="8" fill="#ecf0f1" stroke="#95a5a6" stroke-width="2"/>
+    <circle cx="400" cy="320" r="8" fill="#ecf0f1" stroke="#95a5a6" stroke-width="2"/>
+    <circle cx="500" cy="320" r="8" fill="#ecf0f1" stroke="#95a5a6" stroke-width="2"/>
+    <circle cx="600" cy="320" r="8" fill="#ecf0f1" stroke="#95a5a6" stroke-width="2"/>
+    
+    <text x="80" y="325" text-anchor="end" font-size="14" fill="#7f8c8d" font-style="italic">x₁,₂</text>
+    <text x="180" y="325" text-anchor="end" font-size="14" fill="#7f8c8d" font-style="italic">x₂,₂</text>
+    <text x="280" y="325" text-anchor="end" font-size="14" fill="#7f8c8d" font-style="italic">x₃,₂</text>
+    <text x="380" y="325" text-anchor="end" font-size="14" fill="#2c3e50" font-style="italic" font-weight="600">x₄,₂</text>
+    <text x="480" y="325" text-anchor="end" font-size="14" fill="#2c3e50" font-style="italic" font-weight="600">x₅,₂</text>
+    <text x="580" y="325" text-anchor="end" font-size="14" fill="#7f8c8d" font-style="italic">x₆,₂</text>
+  </g>
+  
+  <!-- Layer 3 (lighter, for context) -->
+  <g id="layer-4" opacity="0.3">
+    <circle cx="100" cy="200" r="7" fill="#ecf0f1" stroke="#95a5a6" stroke-width="1.5"/>
+    <circle cx="200" cy="200" r="7" fill="#ecf0f1" stroke="#95a5a6" stroke-width="1.5"/>
+    <circle cx="300" cy="200" r="7" fill="#ecf0f1" stroke="#95a5a6" stroke-width="1.5"/>
+    <circle cx="400" cy="200" r="7" fill="#ecf0f1" stroke="#95a5a6" stroke-width="1.5"/>
+    <circle cx="500" cy="200" r="7" fill="#ecf0f1" stroke="#95a5a6" stroke-width="1.5"/>
+    <circle cx="600" cy="200" r="7" fill="#ecf0f1" stroke="#95a5a6" stroke-width="1.5"/>
+  </g>
+  
+  <!-- Attention edges for stream 4 (green) -->
+  <!-- (2,2) → (4,2) - curved -->
+  <path d="M 208 320 Q 300 300 392 320" stroke="#27ae60" stroke-width="3.5" fill="none" marker-end="url(#arrow-stream4)" opacity="0.85"/>
+  <!-- (3,2) → (4,2) - straight -->
+  <line x1="308" y1="320" x2="392" y2="320" stroke="#27ae60" stroke-width="3.5" marker-end="url(#arrow-stream4)" opacity="0.85"/>
+  
+  <!-- Attention edges for stream 5 (blue) -->
+  <!-- (3,2) → (5,2) - curved -->
+  <path d="M 308 320 Q 400 300 492 320" stroke="#3498db" stroke-width="3.5" fill="none" marker-end="url(#arrow-stream5)" opacity="0.85"/>
+  <!-- (4,2) → (5,2) - straight -->
+  <line x1="408" y1="320" x2="492" y2="320" stroke="#3498db" stroke-width="3.5" marker-end="url(#arrow-stream5)" opacity="0.85"/>
+  
+  <!-- Highlight target nodes -->
+  <circle cx="400" cy="320" r="11" fill="none" stroke="#27ae60" stroke-width="2.5"/>
+  <circle cx="500" cy="320" r="11" fill="none" stroke="#3498db" stroke-width="2.5"/>
+  
+  <!-- Window annotations -->
+  <!-- Window for stream 4 -->
+  <path d="M 200 280 L 400 280 L 400 360 L 200 360 Z" stroke="#27ae60" stroke-width="2" fill="none" stroke-dasharray="5,5" opacity="0.4"/>
+  <text x="300" y="270" text-anchor="middle" font-size="12" fill="#27ae60" font-weight="600">Window (w=3)</text>
+  <text x="300" y="375" text-anchor="middle" font-size="11" fill="#27ae60" font-style="italic">streams 2,3,4</text>
+  
+  <!-- Window for stream 5 -->
+  <path d="M 300 245 L 500 245 L 500 360 L 300 360 Z" stroke="#3498db" stroke-width="2" fill="none" stroke-dasharray="5,5" opacity="0.4"/>
+  <text x="400" y="235" text-anchor="middle" font-size="12" fill="#3498db" font-weight="600">Window (w=3)</text>
+  <text x="400" y="375" text-anchor="middle" font-size="11" fill="#3498db" font-style="italic">streams 3,4,5</text>
+  
+  <!-- Legend -->
+  <g id="legend" transform="translate(630, 250)">
+    <rect x="0" y="0" width="210" height="130" fill="white" stroke="#bdc3c7" stroke-width="1" rx="5"/>
+    
+    <text x="105" y="25" text-anchor="middle" font-size="14" font-weight="600" fill="#2c3e50">Attention Edges</text>
+    
+    <!-- Stream 5 -->
+    <line x1="15" y1="50" x2="45" y2="50" stroke="#3498db" stroke-width="3.5"/>
+    <text x="55" y="54" font-size="12" fill="#34495e" font-weight="600">Stream 5</text>
+    <text x="55" y="68" font-size="10" fill="#7f8c8d" font-style="italic">attends to 3,4,5</text>
+    
+    <!-- Stream 4 -->
+    <line x1="15" y1="90" x2="45" y2="90" stroke="#27ae60" stroke-width="3.5"/>
+    <text x="55" y="94" font-size="12" fill="#34495e" font-weight="600">Stream 4</text>
+    <text x="55" y="108" font-size="10" fill="#7f8c8d" font-style="italic">attends to 2,3,4</text>
+  </g>
+  
+  <!-- Explanation box -->
+  <g id="explanation" transform="translate(630, 400)">
+    <rect x="0" y="0" width="210" height="85" fill="#ecf0f1" stroke="#95a5a6" stroke-width="1" rx="5"/>
+    
+    <text x="105" y="20" text-anchor="middle" font-size="11" fill="#2c3e50" font-weight="600">N(t, l) = {max(1, t-2),</text>
+    <text x="105" y="35" text-anchor="middle" font-size="11" fill="#2c3e50" font-weight="600">..., t-1, t}</text>
+    <text x="105" y="55" text-anchor="middle" font-size="10" fill="#34495e">Each stream attends</text>
+    <text x="105" y="68" text-anchor="middle" font-size="10" fill="#34495e">to w=3 most recent</text>
+    <text x="105" y="81" text-anchor="middle" font-size="10" fill="#34495e">neighbors (including self)</text>
+  </g>
+  
+  <!-- Token labels at bottom -->
+  <text x="100" y="580" text-anchor="middle" font-size="13" fill="#34495e">w₁</text>
+  <text x="200" y="580" text-anchor="middle" font-size="13" fill="#34495e">w₂</text>
+  <text x="300" y="580" text-anchor="middle" font-size="13" fill="#34495e">w₃</text>
+  <text x="400" y="580" text-anchor="middle" font-size="13" fill="#34495e">w₄</text>
+  <text x="500" y="580" text-anchor="middle" font-size="13" fill="#34495e">w₅</text>
+  <text x="600" y="580" text-anchor="middle" font-size="13" fill="#34495e">w₆</text>
+  
+  <!-- Layer labels on left -->
+  <text x="35" y="545" text-anchor="middle" font-size="13" fill="#7f8c8d" font-weight="600">l=0</text>
+  <text x="35" y="445" text-anchor="middle" font-size="13" fill="#7f8c8d" font-weight="600">l=1</text>
+  <text x="35" y="325" text-anchor="middle" font-size="13" fill="#34495e" font-weight="600">l=2</text>
+  <text x="35" y="205" text-anchor="middle" font-size="13" fill="#7f8c8d" font-weight="600">l=3</text>
+</svg>
