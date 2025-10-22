@@ -5,48 +5,48 @@
 How do Transformers - the models that underpin modern LLMs - actually work under the hood? And how
 can we make them faster? These are central questions in modern AI research, particularly in the
 subfields of mechanistic interpretability, attention variant design, and sparsity. The goal of this
-article is to bridge the gulf between introductory articles on transformer architecture and the
-rapidly growing body of frontier developments on these subjects.
+article is to bridge the gulf between introductory material and the rapidly evolving frontier of
+these fields, and deepen readers' intuition on Transformer internals and attention variants.
 
 In particular, our (perhaps ambitious) thesis is: despite the diversity and apparent complexity of
-ideas in this space, <span style="color: #007bff; font-weight: bold;">a small number of mental models and metaphors can equip a reader
-comfortable with the fundamentals to understand the research frontier</span>.
+ideas in this space, <span style="color: #007bff; font-weight: bold;">a handful of mental models
+and metaphors can equip readers comfortable with the basics to understand the research frontier</span>.
 
-To this end, we hope to explore the following ideas in this and future articles. (Don't worry if many
-of these terms don't make sense yet!)
+To this end, we hope to explore the following ideas in this and future articles. (Don't worry if
+many of these terms don't make sense yet!)
 
-* Transformer models as <span style="color: #2ecc71; font-style: italic;">defining information flow through a graph</span>
-* We'll introduce the notion of *Residual streams*, and how they can be thought  of as <span style="color: #2ecc71; font-style: italic;">fixed-bandwidth information highways</span>
+* Transformer models as <span style="color: #2ecc71; font-style: italic;">defining information flow through a grid graph</span>
+* <span style="color: #2ecc71; font-style: italic;">*Residual streams*</span> as <span style="color: #2ecc71; font-style: italic;">fixed-bandwidth information highways</span>
 * "Residual actors" as <span style="color: #2ecc71; font-style: italic;">collaborating actors with immediate and long-term goals</span>
-* Vanilla Attention as a particular implementation of an <span style="color: #2ecc71; font-style: italic;">abstract interface for cross-stream
+* Ordinary Attention as a particular implementation of an <span style="color: #2ecc71; font-style: italic;">abstract interface for cross-stream
   causal communication</span>
 * Attention Heads as <span style="color: #2ecc71; font-style: italic;">low-rank, additive updates</span> that write into subspaces of the
   residual stream
-* A number of attention variants as <span style="color: #007bff; font-weight: bold;">connectivity-preserving static or dynamic
+* Several attention variants as <span style="color: #2ecc71; font-style: italic"> connectivity-preserving static or dynamic
   sparsification</span> of the underlying information-flow graph
-* Kernelized attention as defining a factor graph mediating cross-stream communication
+* Kernelized attention as defining a <span style="color: #2ecc71; font-style: italic;">factor graph</span> mediating cross-stream communication
 
 ---
 
 ## 2. Prerequisites and Notes on Style
 
-**Prerequisites**
-
+<span style="color: #007bff; font-weight: bold;">**Prerequisites**</span>
 This article assumes you're comfortable with the basics of how Transformers work, particularly
 causal self-attention. If you need a refresher, we recommend [Andrej Karpathy's video](TODO) and [3Blue1Brown's video](TODO) as excellent starting points.
 
-**Scope**
+<span style="color: #007bff; font-weight: bold;">**Scope**</span>
 
-We focus exclusively on causal, decoder-only transformers (like GPT-style models). Throughout this article, we use "Vanilla Attention" to refer to ordinary causal attention, the standard
+We focus exclusively on causal, decoder-only Transformers (like GPT-style models). Throughout this article, we use "Vanilla Attention" to refer to ordinary causal attention, the standard
 self-attention mechanism used in these models.
 
-**Inspiration**
+<span style="color: #007bff; font-weight: bold;">**Inspiration**</span>
 
 This article is heavily inspired by [Anthropic's Mathematical Framework for
-Transformer Circuits](TODO). One of the goals of this article is to provide a gentler onramp
-to some of the deep insights expounded in that work.
+Transformer Circuits](https://Transformer-circuits.pub/2021/framework/index.html). One of the goals
+of this article is to provide a gentler onramp to some of the technical insights expounded in that
+work.
 
-**Philosophy**
+<span style="color: #007bff; font-weight: bold;">**Philosophy**</span>
 
 Our emphasis is on building intuition rather than mathematical rigor or implementation details. To this end:
 - We omit architectural and implementation details (like normalizers, regularizers, numerical
@@ -54,40 +54,39 @@ issues, etc.) that don't change the core story
 - We liberally anthropomorphize (talking about actors "wanting" information, etc.)
 - We often depict parallel computations as serial when it aids understanding.
 
-**Notation**
+<span style="color: #007bff; font-weight: bold;">**Notation**</span>
 
-Our working model will be a causal, decoder-only transformer with `L` layers, hidden dimension
-`D`, and context length `T`. We'll denote input tokens by $w_1, \ldots, w_T$, and use $x_{t,l}$ to denote the representation of token $t$ at layer $l$. We use 1-indexing for both layers and tokens; $x_{t,0}$ denotes the representation of the $t$th token before any transformer block but after token embedding and positional encoding.
+Our working model will be a causal, decoder-only Transformer with `L` layers, hidden dimension
+`D`, and context length `T`. We'll denote input tokens by $w_1, \ldots, w_T$, and use $x_{t,l}$ to denote the representation of token $t$ at layer $l$. We use 1-indexing for both layers and tokens; $x_{t,0}$ denotes the representation of the $t$th token before any Transformer block but after token embedding and positional encoding.
 
 ---
 
 # 3. The Transformer as a Grid of Information Flow
 
 ### <span style="color: #007bff; font-weight: bold;"> 3.1 Introducing the Grid View </span>
-Our core frame for this article will be to think of transformers in terms of information flowing
+Our core frame for this article will be to think of Transformers in terms of information flowing
 through a grid. The two axes of this grid are time (tokens) and depth (layers). Each node `(t, l)`
 on the grid represents the state of token `t` after layer `l`, which we denote $x_{t,l}$.  
 
-![Transformer Grid](transformer-grid-figure)
+![Transformer Grid](Transformer-grid-figure)
 
 <span style="color: #007bff; font-weight: bold;">**Rows as Layers**</span>
 
-A horizontal row in our grid corresponds to a transformer layer. Layers are the computational units
+A horizontal row in our grid corresponds to a Transformer layer. Layers are the computational units
 we typically think about in deep learning: a model is a composition of several layers. Each
-transformer layer is comprised of three core operations:
+Transformer layer is comprised of three core operations:
 
 1. Attention - the core focus of this article.
 2. MLP - a shallow feedforward neural network.
-3. Normalizers and regularizers, like LayerNorm, dropout, and others, which we will collectively refer
-   to as "nonlinearities." While important, we will omit these from all equations and descriptions in
-   this article to keep things uncluttered, as they don't change our core explanations.
+3. Normalizers and regularizers, like LayerNorm, dropout, and others, which we will collectively
+   refer to as "nonlinearities." While important, we will omit these from all equations and descriptions here for brevity, as they don't change our core explanations.
 
 <span style="color: #007bff; font-weight: bold;">**Columns as Residual Streams**</span>
 
 A vertical column corresponds to a single token being processed across layers. We call the `t`th
 column the <span style="color: #007bff; font-weight: bold;">residual stream</span> for token `t`, a term popularized in [Anthropic's original
-Transformer Circuits paper](https://transformer-circuits.pub/2021/framework/index.html). A key frame
-we will adopt in this article is a shift from thinking about transformers as stacks of rows (layers),
+Transformer Circuits paper](https://Transformer-circuits.pub/2021/framework/index.html). A key frame
+we will adopt in this article is a shift from thinking about Transformers as stacks of rows (layers),
 and instead as a series of parallel columns (residual streams).
 
 ### <span style="color: #007bff; font-weight: bold;">**3.2 The Journey of a Single Token**</span>
@@ -140,7 +139,7 @@ an individual goal but also helps others.
 
 ### <span style="color: #007bff; font-weight: bold;">**3.4 The grid as a graph**</span>
 
-With this picture in mind, we can make concrete our framing of transformers as a graph.
+With this picture in mind, we can make concrete our framing of Transformers as a graph.
 
 (TODO - insert image here)
 
@@ -239,7 +238,7 @@ index of its node in the sequence. The average
 workload grows linearly with sequence length, and we have $T$ actors, yielding $\mathcal{O}(T^2D)$ total
 complexity.
 
-As a first approximation, this $\mathcal{O}(T^2D)$ complexity is the central bottleneck in scaling transformers
+As a first approximation, this $\mathcal{O}(T^2D)$ complexity is the central bottleneck in scaling Transformers
 to long contexts, though as we'll see shortly, there is some nuance to this picture. Much of the
 attention variant literature aims to attack this $\mathcal{O}(T^2D)$ term. 
 
@@ -444,7 +443,7 @@ particular were advocated in the somewhat provocative post [Attention is Off By 
 
 # 8. The Landscape of Efficient Attention Mechanisms
 
-So far we've developed a mental framework for understanding what's going on in transformer models,
+So far we've developed a mental framework for understanding what's going on in Transformer models,
 and used this framework to understand one particular family of efficient attention techniques as static sparsification of the underlying information flow graph. We'll now zoom out a bit, and briefly sketch the broader
 landscape of efficient attention techniques, situating each within the framework we've developed.
 
@@ -508,7 +507,7 @@ and global hubs. Examples include:
 
 
 ### <span style="color: #007bff; font-weight: bold;">**8.5 Exact IO-aware kernels.**</span>
-In this article we've mostly focused on conceptual aspects of transformers, whereas efficient
+In this article we've mostly focused on conceptual aspects of Transformers, whereas efficient
 real-world implementations require contending with the realities of modern hardware. Nevertheless,
 the framework we've developed provides a helpful lens for understanding techniques like [Flash
 Attention](https://arxiv.org/abs/2205.14135) and [Paged Attention](https://arxiv.org/abs/2309.06180). These can be viewed as defining **tilings** and **traversals** of the grid graph that compute attention in a *data-locality-aware* way, ensuring information moves efficiently across the hardware as well as across the model.
