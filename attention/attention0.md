@@ -69,7 +69,7 @@ Our core frame will be to view transformers in terms of information flowing thro
 two axes of this grid are time (tokens) and depth (layers). Each node $(t, l)$ on the grid
 represents the state of token $t$ after layer $l$, which we denote $x_{t,l}$.
 
-![Transformer Grid](Transformer-grid-figure)
+![Transformer Grid](transformer-grid.svg)
 
 <span style="color: #007bff;">**Rows as Layers**</span>
 
@@ -207,7 +207,7 @@ parallel.
 
 Key takeaways for mechanistic interpretability:
 
-* <span style="color: #007bff; font-weight: bold;">**Separation of concerns.**</span> Queries and keys decide <span style="color: #2ecc71; font-style: italic;">where to read</span>; values and W_O
+* <span style="color: #007bff; font-weight: bold;">**Separation of concerns.**</span> Queries and keys decide <span style="color: #2ecc71; font-style: italic;">where to read</span>; values and $W_O$
   determine <span style="color: #2ecc71; font-style: italic;">what to write</span>. In interpretability terms, this separation is described as
   <span style="color: #007bff; font-weight: bold;">**QK and OV circuits**</span>. 
 
@@ -267,7 +267,7 @@ a small constant. Second, a sparse attention algorithm that actually addressed t
 
 The standard framing of multi-head attention is about <span style="color: #007bff;">**work-partitioning**</span>: keys, queries, and
 values are sliced along the embedding dimension, heads perform attention independently on their
-slices, the results are concatenated and then projected using W_O before being added to the residual
+slices, the results are concatenated and then projected using $W_O$ before being added to the residual
 stream.
 
 In pseudocode:
@@ -291,7 +291,7 @@ z_{t,l} = x_{t,l} + Σ_h (W_O^h · h_t^h)
 ```
 
 With the latter formulation, we see that each head writes independently and additively into the 
-residual stream through its own projection slice `W_O^h`.
+residual stream through its own projection slice $W_O^h$.
 
 The dual framing of multi-head attention plays a significant role in mechanistic interpretability
 work. A few consequences:
@@ -306,7 +306,7 @@ are low-rank writers into subspaces of the shared stream.
 
 <span style="color: #007bff;">**Potentially limited interaction between heads**</span>
 If two heads write largely into disjoint or orthogonal subspaces, later computation may treat their
-contributions as independent. Overlap enables interaction or interference. The geometry of `W_O`
+contributions as independent. Overlap enables interaction or interference. The geometry of $W_O$
 partitions bandwidth.
 
 <span style="color: #007bff;">**Implicit memory management**</span>
@@ -525,7 +525,7 @@ cache memory by a factor of the group size.
 
 Some intuition for why we can get away with this comes from thinking about QK and OV circuits: it's the *combination* of queries and keys that determines where we look; thus, to ensure that different 
 heads can look in different places, it suffices to vary just one of them across heads. Analogously
-for the OV circuit - even with shared values, different heads can still write to different subspaces of the residual stream due to W_O.
+for the OV circuit - even with shared values, different heads can still write to different subspaces of the residual stream due to $W_O$.
 
 ---
 
