@@ -20,6 +20,7 @@ many of these terms don't make sense yet!)
 * "Residual actors" as <span style="color: #2ecc71; font-style: italic;">collaborating actors with immediate and long-term goals</span>
 * Ordinary Attention as a particular implementation of an <span style="color: #2ecc71; font-style: italic;">abstract interface for cross-stream
   causal communication</span>
+* QK and OV circuits as determinants of *where* information flows and *what* information flows respectively
 * Attention Heads as <span style="color: #2ecc71; font-style: italic;">low-rank, additive updates</span> that write into subspaces of the
   residual stream
 * Several attention variants as <span style="color: #2ecc71; font-style: italic"> connectivity-preserving static or dynamic
@@ -33,7 +34,7 @@ many of these terms don't make sense yet!)
 <span style="color: #007bff; font-weight: bold;">**Prerequisites**</span>
 
 This article assumes you're comfortable with the basics of the transformer architecture,
-particularly causal self-attention. If you need a refresher, we recommend [Andrej Karpathy's video](https://www.youtube.com/watch?v=kCc8FmEb1nY) and [3Blue1Brown's video](https://www.youtube.com/watch?v=wjZofJX0v4M) as excellent starting points.
+particularly causal self-attention. If you need a refresher, we recommend [Andrej Karpathy's video](https://www.youtube.com/watch?v=kCc8FmEb1nY), [3Blue1Brown's video](https://www.youtube.com/watch?v=wjZofJX0v4M), and [The Illustrated Transformer](https://jalammar.github.io/illustrated-transformer/) as excellent starting points.
 
 <span style="color: #007bff; font-weight: bold;">**Scope**</span>
 
@@ -57,8 +58,9 @@ normalizers, regularizers, numerical issues, etc.)
 <span style="color: #007bff; font-weight: bold;">**Notation**</span>
 
 We'll use the following notation throughout. Our working model will be a causal, decoder-only
-transformer with $L$ layers, hidden dimension $D$, and context length $T$. We'll denote input tokens by $w_1, \ldots, w_T$, and use $x_{t,l}$ to denote the representation of token $t$ at layer $l$. We
-use 1-indexing for both layers and tokens; $x_{t,0}$ denotes the representation of the $t$th token *before* the first Transformer block but after token embedding and positional encoding.
+transformer with $L$ layers, hidden dimension $D$, and context length $T$. We'll denote input tokens by $w_1, \ldots, w_T$, and use $x_{t,l}$ to denote the representation of token $t$ at the input to layer $l$. We
+use 1-indexing for tokens and 0-indexing for layers; $x_{t,0}$ denotes the representation of the
+$t$th token entering the first Transformer (i.e. after token embedding and positional embedding). 
 
 ---
 
@@ -160,14 +162,15 @@ In this view, a transformer is a two-dimensional graph of collaborating actors, 
 We'll now revisit how ordinary attention works, with an emphasis on (a) motivating it from first
 principles, and (b) highlighting aspects particularly salient to the frames we're developing. 
 
-Let's put ourselves in the shoes of a single residual actor at $(t, l)$. Our job in the attention step is to enrich our own
-state with information from previous streams. We can break this task down into asking two fundamental
-questions:
+### <span style="color: #007bff;">**4.1 Revisiting Ordinary Attention**</span>
+To motivate attention, let's put ourselves in the shoes of a single residual actor at $(t, l)$. Our
+job in the attention step is to enrich our own state with information from previous streams. We can
+break this task down into asking two fundamental questions:
 
-<span style="color: #2ecc71; font-style: italic;">Where should we look?</span> Among all nodes $u ≤ t$, which ones are relevant
+<span style="color: #2ecc71;">*Where should we look?*</span> Among all nodes $u ≤ t$, which ones are relevant
 to me?
 
-<span style="color: #2ecc71; font-style: italic;">What information should I grab?</span> From each chosen source, what information should I
+<span style="color: #2ecc71;">*What information should I grab?*</span> From each chosen source, what information should I
 import?
 
 These questions correspond directly to the roles played by keys, queries, and values.
@@ -205,7 +208,9 @@ z_{t,l} = x_{t,l} + W_O · h_t
 Note that this pseudocode is pedagogical; in practice, these computations are implemented in
 parallel.
 
-Key takeaways for interpretability:
+### <span style="color: #007bff;">**4.2 Takeaways for Interpretability**</span>
+Below are a few important implications of the attention mechanism on how information flows through a
+transformer model. 
 
 * <span style="color: #007bff; font-weight: bold;">**Separation of concerns.**</span> Queries and keys decide <span style="color: #2ecc71; font-style: italic;">where to read</span>; values and $W_O$
   determine <span style="color: #2ecc71; font-style: italic;">what to write</span>. In interpretability terms, this separation is described as
