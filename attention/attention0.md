@@ -87,8 +87,11 @@ transformer layer is composed of three core operations:
 
 A vertical column corresponds to a single token being processed across layers. We call the $t$-th
 column the <span style="color: #007bff;">**residual stream**</span> for token $t$, a term popularized in [Anthropic's original
-Transformer Circuits paper](https://transformer-circuits.pub/2021/framework/index.html). A key frame
-we'll adopt is a shift from thinking about transformers as stacks of rows (layers),
+Transformer Circuits paper](https://transformer-circuits.pub/2021/framework/index.html). The diagram
+above depicts the residual stream for the third token, and how information can move forward from
+previous streams into this stream via attention.
+
+A key frame we'll adopt is a shift from thinking about transformers as stacks of rows (layers),
 and instead as a <span style="color: #007bff;">**series of parallel columns**</span>. These columns,
 or residual streams, are persistent information channels carrying token representations upwards
 through the model.
@@ -153,6 +156,9 @@ With this picture in mind, we can make concrete our framing of transformers as a
 evolution of a token's representation via residual updates between layers.
 
 * <span style="color: #007bff;">**Horizontal edges**</span> $(u, l) \to (t, l)$ represent information flow from earlier to later streams.
+
+(Note: technically there is also an edge from each node to itself. We omit these from diagrams and
+from wording like "earlier to later" for brevity.)
 
 In this view, a transformer is a two-dimensional graph of collaborating actors, passing information forward in time through attention, and upwards in depth through residual updates.
 
@@ -441,7 +447,9 @@ Instead of looking at just the most recent nodes, consider what happens if we us
 $N(t, l) = \{(t, l), (t-1, l), (t-2, l), (t-4, l), (t-8, l), \ldots, (t - 2^k)\}$,
 where $k = \lfloor \log_{2}(t) \rfloor$. 
 
+
 ![Logarithmic Attention](logarithmic-attention.svg)
+
 
 The neighborhood size is now upper bounded by $\log_{2}(T)$, implying a time complexity of
 $\mathcal{O}(TD^2 + DT \log T)$. We have the following nice observation: 
@@ -452,6 +460,9 @@ Proof (sketch): First, observe that every attention edge in the graph connects n
 of a power of 2. To move information from $(t, 1)$ to $(t + d, l)$, decompose $d$ into its binary
 representation: $d = 2^{i_1} + 2^{i_2} + \ldots + 2^{i_m}$, where $m \le \log_{2}(d)$. Each term 
 can be covered by a single attention hop; hence a path exists as long as $l \ge \log_{2}(d)$.
+
+The figure above illustrates the proof for d = 7: to get from the first token 1 to stream 8, we take
+hops of sizes 1, 2, and 4 in any order.
 
 ### 8.4 Stochastic Masking
 So far we've focused on deterministic constructions of the neighborhood. In stochastic masking, we
@@ -520,12 +531,14 @@ pruning edges while preserving receptive fields. The graph lens makes their trad
 In future articles, we'll apply this same lens to more ideas from the research frontier:
 
 **Dynamic Sparsification and Routing** 
+
 Instead of committing to fixed neighborhoods upfront, what if models dynamically select which edges
 matter based on content? We'll show how several efficient attention methods, from locality
 sensitive hashing in Reformer to DeepSeek's recent "lightning indexer" can be understood as
 dynamic graph sparsification, where $N(t,l)$ becomes a function of the sequence being processed.
 
 **Kernelized Attention and Factor Graphs**
+
 Techniques like Performer, Linear Transformer, and Linformer are typically understood through
 linear algebra: kernel approximations, low-rank factorizations, reordered matrix multiplications.
 But there's a complementary, unifying graph view: these methods can be understood as introducing
@@ -533,6 +546,7 @@ new intermediary nodes, which the original nodes broadcast to and receive from. 
 structure is a factor graph.
 
 **Sparse Memory Layers and Continual Learning**
+
 While we've focused on attention, the graph lens and the sparsity theme extend to emerging ideas
 for improving or replacing MLPs. Recent work on sparse memory layers (like Meta's continual
 learning via sparse memory finetuning) replaces dense MLPs with sparse, addressable memory that

@@ -167,10 +167,18 @@
   <text x="743" y="750" fill="#666" font-size="18" font-family="Arial, sans-serif">w₅</text>
   
   <!-- Node labels for a few key positions -->
-  <text x="100" y="705" fill="#aaa" font-size="16" font-family="Arial, sans-serif">x₁,₀</text>
-  <text x="250" y="530" fill="#aaa" font-size="16" font-family="Arial, sans-serif">x₂,₁</text>
-  <text x="400" y="355" fill="#aaa" font-size="16" font-family="Arial, sans-serif">x₃,₂</text>
-  <text x="550" y="180" fill="#aaa" font-size="16" font-family="Arial, sans-serif">x₄,₃</text>
+  <text x="100" y="705" fill="#aaa" font-size="16" font-family="Arial, sans-serif">
+    x<tspan font-size="11" dy="3">1,0</tspan>
+  </text>
+  <text x="250" y="530" fill="#aaa" font-size="16" font-family="Arial, sans-serif">
+    x<tspan font-size="11" dy="3">2,1</tspan>
+  </text>
+  <text x="400" y="355" fill="#aaa" font-size="16" font-family="Arial, sans-serif">
+    x<tspan font-size="11" dy="3">3,2</tspan>
+  </text>
+  <text x="550" y="180" fill="#aaa" font-size="16" font-family="Arial, sans-serif">
+    x<tspan font-size="11" dy="3">4,3</tspan>
+  </text>
   
   <!-- Axis labels -->
   <text x="30" y="440" fill="#7a9ab5" font-size="22" font-family="Arial, sans-serif" transform="rotate(-90 30 440)" font-weight="600">Depth (Layers)</text>
