@@ -64,7 +64,7 @@ $t$th token entering the first Transformer (i.e. after token embedding and posit
 
 ---
 
-# 3. The Transformer as a Grid of Information Flow
+## 3. The Transformer as a Grid of Information Flow
 
 ### <span style="color: #007bff;"> 3.1 Introducing the Grid View </span>
 Our core frame will be to view transformers in terms of information flowing through a grid. The
@@ -150,16 +150,16 @@ With this picture in mind, we can make concrete our framing of transformers as a
 
 (TODO - insert image here)
 
-* <span style="color: #007bff">**Vertical edges**</span> $\((t, l) \to (t, l+1)\)$ represent the
+* <span style="color: #007bff">**Vertical edges**</span> $(t, l) \to (t, l+1)$ represent the
 evolution of a token's representation via residual updates between layers.
 
-* <span style="color: #007bff;">**Horizontal edges**</span> $\((u, l) \to (t, l)\)$ represent information flow from earlier to later streams.
+* <span style="color: #007bff;">**Horizontal edges**</span> $(u, l) \to (t, l)$ represent information flow from earlier to later streams.
 
 In this view, a transformer is a two-dimensional graph of collaborating actors, passing information forward in time through attention, and upwards in depth through residual updates.
 
 ---
 
-# 4. Anatomy of Causal Attention: QK and OV Circuits
+## 4. Anatomy of Causal Attention: QK and OV Circuits
 We'll now revisit how ordinary attention works, with an emphasis on (a) motivating it from first
 principles, and (b) highlighting aspects particularly salient to the frames we're developing. 
 
@@ -168,7 +168,7 @@ To motivate attention, let's put ourselves in the shoes of a single residual act
 job in the attention step is to enrich our own state with information from previous streams. We can
 break this task down into asking two fundamental questions:
 
-<span style="color: #2ecc71;">*Where should we look?*</span> Among all nodes $u ≤ t$, which ones are relevant
+<span style="color: #2ecc71;">*Where should we look?*</span> Among all nodes $u \le t$, which ones are relevant
 to me?
 
 <span style="color: #2ecc71;">*What information should I grab?*</span> From each chosen source, what information should I
@@ -197,10 +197,10 @@ for u in range(1, t+1):
 
 # normalize the scores to sum to 1 via softmax
 for u in range(1, t+1):
-    a_{t,u} = exp(score_{t, u}) / Σ_{j≤t} exp(score_{t, j})
+    a_{t,u} = \exp(\text{score}_{t, u}) / \sum_{j\le t} \exp(\text{score}_{t, j})
 
 # create a weighted average of values based on attention scores
-h_t = Σ_{u≤t} a_{t,u} * v_u
+h_t = \sum_{u\le t} a_{t,u} \cdot v_u
 
 # multiply by another matrix W_O before adding to the residual stream
 z_{t,l} = x_{t,l} + W_O · h_t
@@ -224,7 +224,7 @@ transformer model.
 * <span style="color: #007bff;">**Additive integration.**</span> The imported content is added to the residual state; nothing is
   overwritten outright.
 
-# 5. Computational Complexity of Attention
+## 5. Computational Complexity of Attention
 ### <span style="color: #007bff;">**5.1 Complexity Derivation**</span>
 Consider generating a sequence of $T$ tokens. The actor at node $t$ must compute attention over all nodes $u \le t$. Each node $t$ involves:
 - Computing query, key, and value given residual stream state: $\mathcal{O}(D^2)$ (matrix-vector multiplication
@@ -255,7 +255,7 @@ An important thing to note is that both the QK and OV circuits contribute to thi
 
 Interestingly, in a [talk](https://www.youtube.com/watch?v=rBCqOTEfxvg&t=1080s) shortly after the original
 Transformer paper, Łukasz Kaiser recalled being nervous about the cost being quadratic in context
-length, before Noam Shazeer pointed out that $D$ was significantly larger than $T$, so the $O(T²D)$ term wasn't the bottleneck. Their application was language translation of sentences, so T was just
+length, before Noam Shazeer pointed out that $D$ was significantly larger than $T$, so the $\mathcal{O}(T^2D)$ term wasn't the bottleneck. Their application was language translation of sentences, so T was just
 ~70 in their context! It's striking to hear because in under a decade we've gone from translating sentences to pushing models to reason over corpora of millions of tokens!
 
 Another important detail to keep in mind when discussing the complexity of attention is that
@@ -263,13 +263,13 @@ attention is highly parallel, so actual wall-clock time differs significantly fr
 An interesting lens for thinking about complexity in a world of increasing compute is: what is the complexity of an algorithm in the limit of infinite parallel compute? For a fascinating deep dive on this, see ["Attention is Logarithmic (Actually)"](https://supaiku.com/attention-is-logarithmic).
 
 Finally, as a personal aside, a pet peeve of mine is when the complexity of attention is written as
-as $O(T²)$, silently treating the embedding dimension as a constant. This is problematic for two
+as $\mathcal{O}(T^2)$, silently treating the embedding dimension as a constant. This is problematic for two
 reasons. First, the embedding dimension is in the thousands for frontier models, so it's not exactly
-a small constant. Second, a sparse attention algorithm that actually addressed the $D$ term and reduced complexity to say, $O(T^2 log D)$, could still represent a meaningful advance despite still being quadratic in $T$.
+a small constant. Second, a sparse attention algorithm that actually addressed the $D$ term and reduced complexity to say, $\mathcal{O}(T^2 \log D)$, could still represent a meaningful advance despite still being quadratic in $T$.
 
 ---
 
-# 6. Attention Heads: Work-Partitioning and Low-Rank Updates
+## 6. Attention Heads: Work-Partitioning and Low-Rank Updates
 
 The standard framing of multi-head attention is about <span style="color: #007bff;">**work-partitioning**</span>: keys, queries, and
 values are sliced along the embedding dimension, heads perform attention independently on their
@@ -293,7 +293,7 @@ to summing linear projections applied to the individual slices.
 ```
 # equivalent independent-adds formulation
 # W_O^h is the slice of W_O corresponding to head h
-z_{t,l} = x_{t,l} + Σ_h (W_O^h · h_t^h)
+z_{t,l} = x_{t,l} + \sum_h (W_O^h \cdot h_t^h)
 ```
 
 With the latter formulation, we see that each head writes *independently and additively* into the 
@@ -324,7 +324,7 @@ downstream use, and some act as cleaners.
 
 ---
 
-# 7. The Combinatorics of Attention-Based Information Flows
+## 7. The Combinatorics of Attention-Based Information Flows
 
 With the information-flow graph picture established, we can now ask an interesting question: how
 many distinct paths can information take from one residual stream state $(t_1, l_1)$ to another
@@ -357,7 +357,7 @@ graph? Can we prune some edges, while still maintaining healthy information flow
 
 ---
 
-# 8. Static Graph Sparsification
+## 8. Static Graph Sparsification
 Let's introduce some notation to make the ideas hinted at at the end of the previous section
 concrete. 
 
@@ -368,7 +368,7 @@ Define $N(t, l)$ as the <span style="color: #007bff;">attention neighborhood</sp
 actor at $(t, l)$ can attend to. The actor at $(t, l)$ computes attention only over nodes in
 $N(t, l)$, ignoring all others. In ordinary attention, we have $N(t, l) = \{(1, l), (2, l), \ldots, (t, l)\}$, i.e. all previous nodes in the current layer. 
 
-We'll see that a large number of efficient attention mechanisms boil down to simply defining `N(t, l)`
+We'll see that a large number of efficient attention mechanisms boil down to simply defining $N(t, l)$
 in different ways. In particular, these mechanisms **shrink** the neighborhood to some subset of the full ordinary neighborhood. Why does this help? We have the following observation:
 
 Observation: if we fix neighborhood size to some constant $w$, the time complexity of generating $T$ tokens is $\mathcal{O}(TD^2 + TDw) = \mathcal{O}(TDw)$, assuming the second term still dominates. This is a 
@@ -381,64 +381,64 @@ $\mathcal{O}(wD)$ per token instead of $\mathcal{O}(tD)$.
 
 Let's also make concrete the notion of "preserving information flow." We'll define the
 <span style="color: #007bff;">**receptive field**</span> of node $(t, l)$ as the set of input tokens that this node can "see" through the network. More
-formally, it is the set of indices `i` such that there exists a path in the
-information flow graph from node `(i, 0)` to node $(t, l)$.
+formally, it is the set of indices $i$ such that there exists a path in the
+information flow graph from node $(i, 0)$ to node $(t, l)$.
 
 In ordinary attention, the node $(t, l)$ can "see" all tokens from 1 through $t$, 
-because it receives information from all previous streams, so the receptive field is the full set ${1, ..., t}$. As we shrink neighborhoods, we will also shrink the receptive fields of some tokens. Thus, there is a tradeoff between neighborhood size and receptive field: smaller
+because it receives information from all previous streams, so the receptive field is the full set $\{1, \ldots, t\}$. As we shrink neighborhoods, we will also shrink the receptive fields of some tokens. Thus, there is a tradeoff between neighborhood size and receptive field: smaller
 neighborhoods yield lower attention cost, but also lower receptive field. 
 
 
 ### 8.2 Sliding Window Attention
 In Sliding Window Attention, each actor attends only to its $w$ most recent neighbors. In symbols, 
-$N(t, l) = {(max(1, t-w+1), l), ..., (t, l)}$
+$N(t, l) = \{(\max(1, t-w+1), l), \ldots, (t, l)\}$
 
 ![Sliding-Window](sliding-window.svg)
 
 **Time Complexity**
 
 As we've established, since the neighborhood size is fixed to $w$, the time complexity of attention
-will be $O(TD^2 + DTw)$
+will be $\mathcal{O}(TD^2 + DTw)$
 
 **Receptive Field**
 
-Consider node $(t, 1)$. It can only see the $w$ most recent tokens, i.e. tokens $t, t-1, ..., t-w+1$. If we go up a layer, the receptive field approximately doubles: $(t, 2)$ can see back up to $(t-w+1, 1)$, which can see up to $(t-2*w+2, 0)$. Continuing in this manner, we see that the receptive field **grows linearly with depth**, i.e. the size of the receptive field of $(t, l)$ is $O(lw)$. Put another way, we need about $T/w$ layers to ensure the last stream
+Consider node $(t, 1)$. It can only see the $w$ most recent tokens, i.e. tokens $t, t-1, \ldots, t-w+1$. If we go up a layer, the receptive field approximately doubles: $(t, 2)$ can see back up to $(t-w+1, 1)$, which can see up to $(t-2*w+2, 0)$. Continuing in this manner, we see that the receptive field **grows linearly with depth**, i.e. the size of the receptive field of $(t, l)$ is $\mathcal{O}(lw)$. Put another way, we need about $T/w$ layers to ensure the last stream
 receives information from the first token. 
 
 Sliding window attention thus gives us about a $T/w$ complexity saving over ordinary attention, 
 but at the cost of needing about $T/w$ layers for information to propagate over the entire 
 sequence. This is not great for long contexts, and so when sliding window attention is used in
-practice, it's typically used in conjunction with ordinary attention (e.g. alternating layers, as in GPT OSS), as opposed to fully replacing it. 
+practice, it's typically used in conjunction with ordinary attention (e.g. alternating layers, as in GPT-OSS), as opposed to fully replacing it. 
 
 ### 8.3 Dilated Attention
 Dilated attention is like sliding window attention but with "jumps." Instead of just looking at the last 
 $w$ nodes, we'll make jumps of length $D$, the dilation factor. In symbols, 
-$N(t, l) = {(t, l), (t-d, l), (t-2d, l), (t-3d, l), ..., (t - (w-1)*d)}$
+$N(t, l) = \{(t, l), (t-d, l), (t-2d, l), (t-3d, l), \ldots, (t - (w-1)d)\}$
 
-Consider what happens when we stack layers with dilation factors $1, w, w^2, ...$. In the first
+Consider what happens when we stack layers with dilation factors $1, w, w^2, \ldots$. In the first
 layer, each node just talks to its closest $w$ neighbors, as in sliding window. But in the second layer,
-each node talks to $w$ nodes, whose receptive fields are disjoint and each of size $w$, yielding a receptive field of size $O(w^2)$. Continuing in this manner, we see that receptive field increases *exponentially* with depth, as opposed to linearly in sliding window attention. The time complexity
-is the same as in sliding window attention, but we now only need $log_{w}T$ layers to establish full information flow, as opposed to $T/w$ in sliding window attention.
+each node talks to $w$ nodes, whose receptive fields are disjoint and each of size $w$, yielding a receptive field of size $\mathcal{O}(w^2)$. Continuing in this manner, we see that receptive field increases *exponentially* with depth, as opposed to linearly in sliding window attention. The time complexity
+is the same as in sliding window attention, but we now only need $\log_{w} T$ layers to establish full information flow, as opposed to $T/w$ in sliding window attention.
 
 ### 8.4 Logarithmic Attention
 Instead of using a fixed size jump inside a layer, consider what happens if we use an 
 exponentially increasing jump size within a layer:
-$N(t, l) = {(t, l), (t-1, l), (t-2, l), (t-4, l), (t-8, l), ... (t - 2^k)}$,
-where $k = \floor{\log_{2}(t)}$. 
+$N(t, l) = \{(t, l), (t-1, l), (t-2, l), (t-4, l), (t-8, l), \ldots, (t - 2^k)\}$,
+where $k = \lfloor \log_{2}(t) \rfloor$. 
 
-The neighborhood size is now upper bounded by $log_{2}(T)$, implying a time complexity of
-$O(TD^2 + DTlogT)$. We have the following nice observation: 
+The neighborhood size is now upper bounded by $\log_{2}(T)$, implying a time complexity of
+$\mathcal{O}(TD^2 + DT \log T)$. We have the following nice observation: 
 
-Claim: the receptive field of $(t, l)$ where $l > log_{2}(t)$ is the full set $1, ..., t$. In other words, we achieve full information flow within $log_{2}(t)$ layers. 
+Claim: the receptive field of $(t, l)$ where $l > \log_{2}(t)$ is the full set $\{1, \ldots, t\}$. In other words, we achieve full information flow within $\log_{2}(t)$ layers. 
 
 Proof (sketch): the basic idea is that at any point we have the ability to jump right by any
 power of 2. So to get from $(t, 1)$ to $(t + d, l)$, simply follow the binary representation of $d$, i.e. write $d$ as a sum of powers of 2, and make those jumps. 
 
 ### 8.5 Stochastic Masking
 The idea here is to choose random subsets at each layer:
-$N(t, l)$ is a random subset of size $w$ drawn from ${(1, l), ..., (t, l)}$.
+$N(t, l)$ is a random subset of size $w$ drawn from $\{(1, l), \ldots, (t, l)\}$.
 
-As before, the time complexity is $O(TD^2 + TDw)$. Now, why would we expect randomly chosen
+As before, the time complexity is $\mathcal{O}(TD^2 + TDw)$. Now, why would we expect randomly chosen
 neighborhoods to yield good connectivity patterns? While a deep dive on this is beyond the scope of this article,
 we'll briefly mention that:
 
@@ -452,7 +452,7 @@ probability](https://theory.epfl.ch/courses/topicstcs/Lecture3.pdf).
 
 ### 8.6 Global Tokens & Sink Tokens
 Global tokens can be used in conjunction with other static sparsification methods. The basic idea is to augment the neighborhood of each node with a common set of nodes called global tokens:
-$N(t, l) = {(g_1, l), (g_2, l), ..., (g_k, l)} ∪ PrevNeighborhood(t, l)$
+$N(t, l) = \{(g_1, l), (g_2, l), \ldots, (g_k, l)\} \cup \text{PrevNeighborhood}(t, l)$
 
 Sink tokens are a particular case, where the global tokens are the first $k$ tokens of the sequence
 for some $k$. This technique is used in [GPT-OSS](https://openai.com/index/introducing-gpt-oss/) in the sliding window attention layers. A theoretical basis for
@@ -461,7 +461,7 @@ particular were advocated in the somewhat provocative post [Attention is Off By 
 
 ---
 
-# 9. The Landscape of Efficient Attention Mechanisms
+## 9. The Landscape of Efficient Attention Mechanisms
 
 So far we've developed a mental framework for understanding what's going on in Transformer models,
 and used this framework to understand one particular family of efficient attention techniques as static sparsification of the underlying information flow graph. We'll now zoom out a bit, and briefly sketch the broader
@@ -526,14 +526,14 @@ and global hubs. Examples include:
 * [Retrieval-Augmented Generation](https://arxiv.org/abs/2005.11401), which can be viewed as augmenting our grid graph with off-grid nodes.
 
 
-### <span style="color: #007bff;">**9.5 Exact IO-aware kernels.**</span>
+### <span style="color: #007bff;">**9.5 Exact IO-Aware Kernels**</span>
 In this article we've mostly focused on conceptual aspects of Transformers, whereas efficient
 real-world implementations require contending with the realities of modern hardware. Nevertheless,
 the framework we've developed provides a helpful lens for understanding techniques like [Flash
 Attention](https://arxiv.org/abs/2205.14135) and [Paged Attention](https://arxiv.org/abs/2309.06180). These can be viewed as defining **tilings** and **traversals** of the grid graph that compute attention in a *data-locality-aware* way, ensuring information moves efficiently across the hardware as well as across the model.
 
 
-### <span style="color: #007bff;">**9.6 KV-efficiency and head-sharing.**</span>
+### <span style="color: #007bff;">**9.6 KV-Efficiency and Head-Sharing**</span>
 A widely used idea in frontier models is to share keys and values across attention heads, while
 keeping the queries separate. Key techniques include [Multi Query Attention](https://arxiv.org/abs/1911.02150) and [Grouped Query Attention](https://arxiv.org/pdf/2305.13245). Doing so shrinks KV
 cache memory by a factor of the group size.
@@ -544,7 +544,7 @@ for the OV circuit - even with shared values, different heads can still write to
 
 ---
 
-# 10. Summary and Next Steps
+## 10. Summary and Next Steps
 We've introduced a handful of core lenses for thinking about Transformer internals, and used them to
 explore a number of ideas from efficient attention variant design, mechanistic interpretability, and
 sparsity. With this foundation established, we hope to go deeper in future articles into some topics
