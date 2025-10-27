@@ -71,6 +71,8 @@ Our core frame will be to view transformers in terms of information flowing thro
 two axes of this grid are time (tokens) and depth (layers). Each node $(t, l)$ on the grid
 represents the state of token $t$ at the start of layer $l$, which we denote $x_{t,l}$.
 
+
+
 ![Transformer Grid](transformer-grid.svg)
 
 <span style="color: #007bff;">**Rows as Layers**</span>
@@ -219,19 +221,19 @@ parallel.
 Below are a few important implications of the attention mechanism on how information flows through
 a transformer model. 
 
-<span style="color: #007bff;">**Separation of concerns.**</span>
+<span style="color: #007bff;">**Separation of Concerns**</span>
 
 Queries and keys decide <span style="color: #2ecc71;">where to read</span>; values and $W_O$
 determine <span style="color: #2ecc71;">what to write</span>. In interpretability terms, this
 separation is described as <span style="color: #007bff;">**QK and OV circuits**</span>. 
 
-<span style="color: #007bff;">**Linearity Modulo Attention Pattern.**</span>
+<span style="color: #007bff;">**Linearity Modulo Attention Pattern**</span>
 
 The only source of nonlinearity comes from the softmax operation, which is part of the QK circuit
 (determining the attention pattern). If we fix the attention pattern, the entire attention operation
 becomes a linear function of its inputs.
 
-<span style="color: #007bff;">**Additive integration.**</span>
+<span style="color: #007bff;">**Additive Integration**</span>
 
 The imported content is added to the residual state; nothing is overwritten outright.
 
@@ -423,8 +425,9 @@ neighborhoods yield lower attention cost, but also lower receptive field.
 
 
 ### 8.2 Sliding Window Attention
-In Sliding Window Attention, each actor attends only to its $w$ most recent neighbors. In symbols, 
-$N(t, l) = {(\max(1, t-w+1), l), \ldots, (t, l)}$
+In Sliding Window Attention, each actor attends only to its $w$ most recent neighbors. In symbols,
+
+$N(t, l) = \{(\max(1, t-w+1), l), \ldots, (t, l)\}$
 
 ![Sliding-Window](sliding-window.svg)
 
