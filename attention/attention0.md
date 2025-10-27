@@ -156,6 +156,7 @@ evolution of a token's representation via residual updates between layers.
 * <span style="color: #007bff;">**Horizontal edges**</span> $\((u, l) \to (t, l)\)$ represent information flow from earlier to later streams.
 
 In this view, a transformer is a two-dimensional graph of collaborating actors, passing information forward in time through attention, and upwards in depth through residual updates.
+
 ---
 
 # 4. Anatomy of Causal Attention: QK and OV Circuits
@@ -320,6 +321,7 @@ Updates are additive and persistent. Information written by a head persists unle
 actively overwrite or counter-write it. Since bandwidth is finite (dimension $D$), writing one thing
 necessarily crowds others. Some heads compress or move information, others cache patterns for
 downstream use, and some act as cleaners.
+
 ---
 
 # 7. The Combinatorics of Attention-Based Information Flows
