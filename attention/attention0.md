@@ -8,15 +8,15 @@ subfields of mechanistic interpretability, attention variant design, and sparsit
 article is to bridge the gulf between introductory material and the rapidly evolving frontier of
 these fields, and deepen readers' intuition on Transformer internals and attention variants.
 
-In particular, our (perhaps ambitious) thesis is: despite the diversity and apparent complexity of
+In particular, our (perhaps ambitious) thesis is: despite the diversity of
 ideas in this space, <span style="color: #007bff">**a handful of mental models
-and metaphors can equip readers comfortable with the basics to understand the research frontier**</span>.
+and metaphors is sufficient to understand the research frontier**</span>.
 
 To this end, we hope to explore the following ideas in this and future articles. (If some of these terms are unfamiliar, that's expected - we'll develop each from first principles.)
 
 * <span style="color: #007bff">**Transformer models**</span> as <span style="color: #2ecc71;">*defining information flow through a grid graph*</span>
-* <span style="color: #007bff">**Residual streams**</span> as <span style="color: #2ecc71;">*fixed-bandwidth information highways*</span>
-* <span style="color: #007bff">**Transformer layers**</span> as a sequence of <span style="color: #2ecc71;">*collaborating actors with immediate and long-term goals*</span>
+* <span style="color: #007bff">**Residual Streams**</span> as <span style="color: #2ecc71;">*fixed-bandwidth information highways*</span>
+* <span style="color: #007bff">**Transformer Layers**</span> as a sequence of <span style="color: #2ecc71;">*collaborating actors with immediate and long-term goals*</span>
 * <span style="color: #007bff">**Ordinary Attention**</span> as a particular implementation of an <span style="color: #2ecc71;">*abstract interface for cross-stream
   causal communication*</span>
 * <span style="color: #007bff">**QK and OV circuits**</span> as determinants of <span style="color: #2ecc71;">*where* information flows and <span style="color: #2ecc71;">*what* information flows respectively
@@ -57,9 +57,10 @@ normalizers, regularizers, numerical issues, etc.)
 <span style="color: #007bff;">**Notation**</span>
 
 We'll use the following notation throughout. Our working model will be a causal, decoder-only
-transformer with $L$ layers, hidden dimension $D$, and context length $T$. We'll denote input tokens by $w_1, \ldots, w_T$, and use $x_{t,l}$ to denote the representation of token $t$ at the input to layer $l$. We
+transformer with $L$ layers, hidden dimension $D$, and context length $T$. We'll denote input tokens
+by $w_1, \ldots, w_T$, and use $x_{t,l}$ to denote the representation of token $t$ at the input to layer $l$. We
 use 1-indexing for tokens and 0-indexing for layers; $x_{t,0}$ denotes the representation of the
-$t$th token entering the first Transformer (i.e. after token embedding and positional embedding). 
+$t$th token entering the layer 0 (i.e. after token embedding and positional embedding).
 
 ---
 
@@ -68,7 +69,7 @@ $t$th token entering the first Transformer (i.e. after token embedding and posit
 ### <span style="color: #007bff;"> 3.1 Introducing the Grid View </span>
 Our core frame will be to view transformers in terms of information flowing through a grid. The
 two axes of this grid are time (tokens) and depth (layers). Each node $(t, l)$ on the grid
-represents the state of token $t$ after layer $l$, which we denote $x_{t,l}$.
+represents the state of token $t$ at the start of layer $l$, which we denote $x_{t,l}$.
 
 ![Transformer Grid](transformer-grid.svg)
 
@@ -80,8 +81,7 @@ transformer layer is composed of three core operations:
 
 1. Attention - the core focus of this article.
 2. MLP - a shallow feedforward neural network.
-3. Normalizers and regularizers, like LayerNorm, dropout, and others, which we will collectively
-   refer to as "nonlinearities." While important, we will omit these from all equations and descriptions here for brevity, as they don't change our core explanations.
+3. Normalizers and regularizers, like LayerNorm, dropout, and others. While important, we will omit these from all equations and descriptions here for brevity, as they don't change our core explanations.
 
 <span style="color: #007bff;">**Columns as Residual Streams**</span>
 
@@ -129,10 +129,10 @@ We can frame the two core operations within a layer as follows:
 
 ```
 # Attention: collaboration step - pull from previous actors at the same layer
-z_{t,l} = x_{t,l} + Attend(x_{1,l}, x_{2,l}, ..., x_{t,l})
+$z_{t,l} = x_{t,l} + \text{Attend}(x_{1,l}, x_{2,l}, ..., x_{t,l})$
 
 # MLP: solo step - compute locally on the post-attention state
-x_{t,l+1} = z_{t,l} + MLP(z_{t,l})
+$x_{t,l+1} = z_{t,l} + \text{MLP}(z_{t,l})$
 ```
 
 With this framing, a single layer is implemented by multiple *collaborating actors*, using attention
@@ -160,7 +160,8 @@ evolution of a token's representation via residual updates between layers.
 (Note: technically there is also an edge from each node to itself. We omit these from diagrams and
 from wording like "earlier to later" for brevity.)
 
-In this view, a transformer is a two-dimensional graph of collaborating actors, passing information forward in time through attention, and upwards in depth through residual updates.
+In this view, a transformer is a two-dimensional graph of collaborating actors, passing information
+forward in time through attention, and upwards in depth through residual updates.
 
 ---
 
@@ -198,17 +199,17 @@ In pseudocode:
 ```
 # scores each key by taking a dot product with our query
 for u in range(1, t+1):
-    score_{t, u} = dot(q_t, k_u)
+    $score_{t, u} = q_t^T k_u$
 
 # normalize the scores to sum to 1 via softmax
 for u in range(1, t+1):
-    a_{t,u} = \exp(\text{score}_{t, u}) / \sum_{j\le t} \exp(\text{score}_{t, j})
+    $a_{t,u} = \exp(\text{score}_{t, u}) / \sum_{j\le t} \exp(\text{score}_{t, j})$
 
 # create a weighted average of values based on attention scores
-h_t = \sum_{u\le t} a_{t,u} \cdot v_u
+$h_t = \sum_{u\le t} a_{t,u} \cdot v_u$
 
 # multiply by another matrix W_O before adding to the residual stream
-z_{t,l} = x_{t,l} + W_O · h_t
+$z_{t,l} = x_{t,l} + W_O h_t$
 ```
 
 Note that this pseudocode is pedagogical; in practice, these computations are implemented in
@@ -218,20 +219,26 @@ parallel.
 Below are a few important implications of the attention mechanism on how information flows through
 a transformer model. 
 
-* <span style="color: #007bff;">**Separation of concerns.**</span> Queries and keys decide <span style="color: #2ecc71;">where to read</span>; values and $W_O$
-  determine <span style="color: #2ecc71;">what to write</span>. In interpretability terms, this separation is described as
-  <span style="color: #007bff;">**QK and OV circuits**</span>. 
+<span style="color: #007bff;">**Separation of concerns.**</span>
 
-* <span style="color: #007bff;">**Linearity Modulo Attention Pattern.**</span> The only source of nonlinearity comes from the softmax
-  operation, which is part of the QK circuit (determining the attention pattern). If we fix the
-  attention pattern, the entire attention operation becomes a linear function of its inputs.
+Queries and keys decide <span style="color: #2ecc71;">where to read</span>; values and $W_O$
+determine <span style="color: #2ecc71;">what to write</span>. In interpretability terms, this
+separation is described as <span style="color: #007bff;">**QK and OV circuits**</span>. 
 
-* <span style="color: #007bff;">**Additive integration.**</span> The imported content is added to the residual state; nothing is
-  overwritten outright.
+<span style="color: #007bff;">**Linearity Modulo Attention Pattern.**</span>
+
+The only source of nonlinearity comes from the softmax operation, which is part of the QK circuit
+(determining the attention pattern). If we fix the attention pattern, the entire attention operation
+becomes a linear function of its inputs.
+
+<span style="color: #007bff;">**Additive integration.**</span>
+
+The imported content is added to the residual state; nothing is overwritten outright.
 
 ## 5. Computational Complexity of Attention
 ### <span style="color: #007bff;">**5.1 Complexity Derivation**</span>
-Consider generating a sequence of $T$ tokens. The actor at node $t$ must compute attention over all nodes $u \le t$. Each node $t$ involves:
+Consider generating a sequence of $T$ tokens. The actor at node $t$ must compute attention over all
+nodes $u \le t$. Each node $t$ involves:
 - Computing query, key, and value given residual stream state: $\mathcal{O}(D^2)$ (matrix-vector multiplication
   with $D \times D$ weight matrices)
 - Computing $t$ dot products between query and keys: $\mathcal{O}(tD)$  
@@ -248,13 +255,14 @@ $$
 $$
 
 Intuitively, this quadratic scaling in $T$ makes sense: each residual actor does work proportional
-to the index of its node in the sequence. The average workload grows linearly with sequence length, and we have $T$ actors, yielding $\mathcal{O}(T^2D)$ total complexity.
+to the index of its node in the sequence. The average workload grows linearly with sequence length,
+and we have $T$ actors, yielding $\mathcal{O}(T^2D)$ total complexity.
 
 As a first approximation, this $\mathcal{O}(T^2D)$ complexity is the central bottleneck in scaling
 transformers to long contexts, though as we'll see shortly, there is some nuance to this picture.
 Much of the attention variant literature aims to attack this $\mathcal{O}(T^2D)$ term. 
 
-An important thing to note is that both the QK and OV circuits contribute to this quadratic cost: each stream’s linear work stems from two sources: scoring all previous keys (QK circuit) and summing all corresponding values (OV circuit). Thus, <span style="color: #007bff;">any attempt to break the quadratic barrier must address both QK and OV circuits</span>. 
+An important thing to note is that both the QK and OV circuits contribute to this quadratic cost: each stream’s linear work stems from two sources: scoring all previous keys (QK circuit) and summing all corresponding values (OV circuit). Thus, <span style="color: #007bff;">**any attempt to break the quadratic barrier must address both QK and OV circuits**</span>. 
 
 ### <span style="color: #007bff;">**5.2 Aside: Nuances on Complexity**</span>
 
@@ -285,11 +293,11 @@ In pseudocode:
 
 ```
 # concat-then-project formulation
-# Let h_t^1, h_t^2, ..., h_t^H denote the outputs from each of H heads
-# (each is a weighted average of values from that head)
+# Let $h_t^1, h_t^2, ..., h_t^H$ denote the outputs from each of H heads
+# (each is a weighted average of values from that head, of dimension $D/H$)
 
-h_t = concat(h_t^1, …, h_t^H)  # concatenate head outputs
-z_{t,l} = x_{t,l} + W_O · h_t    # project and add to residual stream
+$h_t = concat(h_t^1, …, h_t^H)$  # concatenate head outputs
+$z_{t,l} = x_{t,l} + W_O h_t$    # project and add to residual stream
 ```
 
 A key linear-algebraic observation is: concatenation followed by linear projection is equivalent
@@ -297,8 +305,8 @@ to summing linear projections applied to the individual slices.
 
 ```
 # equivalent independent-adds formulation
-# W_O^h is the slice of W_O corresponding to head h
-z_{t,l} = x_{t,l} + \sum_h (W_O^h \cdot h_t^h)
+# $W_O^h$ is the slice of $W_O$ corresponding to head $h$
+$z_{t,l} = x_{t,l} + \sum_h (W_O^h h_t^h)$
 ```
 
 With the latter formulation, we see that each head writes *independently and additively* into the 
@@ -383,7 +391,7 @@ efficient attention variants.
 
 Define $N(t, l)$ as the <span style="color: #007bff;">attention neighborhood</span> of node $(t, l)$: that is, the set of nodes that the
 actor at $(t, l)$ can attend to. The actor at $(t, l)$ computes attention only over nodes in
-$N(t, l)$, ignoring all others. In ordinary attention, we have $N(t, l) = \{(1, l), (2, l), \ldots, (t, l)\}$, i.e. all previous nodes in the current layer. 
+$N(t, l)$, ignoring all others. In ordinary attention, we have $N(t, l) = {(1, l), (2, l), \ldots, (t, l)}$, i.e. all previous nodes in the current layer. 
 
 We'll see that a large number of efficient attention mechanisms boil down to simply defining $N(t, l)$
 in different ways. In particular, these mechanisms **shrink** the neighborhood to some subset of the full ordinary neighborhood. Why does this help? We have the following observation:
@@ -395,6 +403,7 @@ The reasoning mirrors Section 5: both the query-key scoring and value-aggregatio
 $\mathcal{O}(wD)$ per token instead of $\mathcal{O}(tD)$.
 
 <span style="color: #007bff;">**Static vs Dynamic Sparsification**</span>
+
 The term *sparsification* in graph theory refers to removing some set of edges. To shrink 
 neighborhoods from the full set in ordinary attention is to *sparsify* the underlying
 information flow graph. This sparsification is *static* because we do it once upfront. *Dynamic*
@@ -415,7 +424,7 @@ neighborhoods yield lower attention cost, but also lower receptive field.
 
 ### 8.2 Sliding Window Attention
 In Sliding Window Attention, each actor attends only to its $w$ most recent neighbors. In symbols, 
-$N(t, l) = \{(\max(1, t-w+1), l), \ldots, (t, l)\}$
+$N(t, l) = {(\max(1, t-w+1), l), \ldots, (t, l)}$
 
 ![Sliding-Window](sliding-window.svg)
 
@@ -426,7 +435,7 @@ will be $\mathcal{O}(TD^2 + DTw)$
 
 **Receptive Field**
 
-Consider node $(t, 1)$. It can only see the $w$ most recent tokens, i.e. tokens $t, t-1, \ldots, t-w+1$. If we go up a layer, the receptive field increases by $w-1$: $(t, 2)$ can see back up to $(t-w+1, 1)$, which in turn can see up to $(t-2*w+2, 0)$. Continuing in this manner, at each layer,
+Consider node $(t, 0)$. It can only see the $w$ most recent tokens, i.e. tokens $t, t-1, \ldots, t-w+1$. If we go up a layer, the receptive field increases by $w-1$: $(t, 1)$ can see back up to $(t-w+1, 1)$, which in turn can see up to $(t-2*w+2, 0)$. Continuing in this manner, at each layer,
 the receptive field extends by an additional $w-1$ positions, giving **linear growth with depth**:
 the size of the receptive field of $(t, l)$ is $\mathcal{O}(lw)$. Put another way, we need $O(T/w)
 $ layers to ensure the last stream receives information from the first token.
@@ -444,7 +453,7 @@ fairly similar.
 
 ### 8.3 Logarithmic Attention
 Instead of looking at just the most recent nodes, consider what happens if we use an exponentially increasing jump size within a layer:
-$N(t, l) = \{(t, l), (t-1, l), (t-2, l), (t-4, l), (t-8, l), \ldots, (t - 2^k)\}$,
+$N(t, l) = {(t, l), (t-1, l), (t-2, l), (t-4, l), (t-8, l), \ldots, (t - 2^k)}$,
 where $k = \lfloor \log_{2}(t) \rfloor$. 
 
 
@@ -454,9 +463,9 @@ where $k = \lfloor \log_{2}(t) \rfloor$.
 The neighborhood size is now upper bounded by $\log_{2}(T)$, implying a time complexity of
 $\mathcal{O}(TD^2 + DT \log T)$. We have the following nice observation: 
 
-Claim: the receptive field of $(t, l)$ where $l > \log_{2}(t)$ is the full set $\{1, \ldots, t\}$. In other words, we achieve full information flow within $\log_{2}(t)$ layers. 
+**Claim**: the receptive field of $(t, l)$ where $l > \log_{2}(t)$ is the full set $\{1, \ldots, t\}$. In other words, we achieve full information flow within $\log_{2}(t)$ layers. 
 
-Proof (sketch): First, observe that every attention edge in the graph connects nodes at a distance
+**Proof (sketch)**: First, observe that every attention edge in the graph connects nodes at a distance
 of a power of 2. To move information from $(t, 1)$ to $(t + d, l)$, decompose $d$ into its binary
 representation: $d = 2^{i_1} + 2^{i_2} + \ldots + 2^{i_m}$, where $m \le \log_{2}(d)$. Each term 
 can be covered by a single attention hop; hence a path exists as long as $l \ge \log_{2}(d)$.
@@ -467,7 +476,7 @@ hops of sizes 1, 2, and 4 in any order.
 ### 8.4 Stochastic Masking
 So far we've focused on deterministic constructions of the neighborhood. In stochastic masking, we
 instead use a random subset:
-$N(t, l)$ is a random subset of size $w$ drawn from $\{(1, l), \ldots, (t, l)\}$.
+$N(t, l)$ is a random subset of size $w$ drawn from ${(1, l), \ldots, (t, l)}$.
 
 As before, the time complexity is $\mathcal{O}(TD^2 + TDw)$. Now, why would we expect randomly chosen
 neighborhoods to yield good connectivity patterns? While a deep dive on this is beyond the scope of this article,
@@ -486,7 +495,7 @@ probability](https://theory.epfl.ch/courses/topicstcs/Lecture3.pdf).
 When sparsifying a graph, we naturally destroy some connectivity structure. The basic idea of
 global tokens is to mitigate some of this damage by augmenting the (sparsified) neighborhood of
 each node with a common set of nodes called global tokens:
-$N(t, l) = \{(g_1, l), (g_2, l), \ldots, (g_k, l)\} \cup N_{base}(t, l)$,
+$N(t, l) = {(g_1, l), (g_2, l), \ldots, (g_k, l)} \cup N_{base}(t, l)$,
 where $N_{base}(t, l)$ is the neighborhood from whichever base sparsification 
 method we're augmenting (e.g. sliding window).
 
