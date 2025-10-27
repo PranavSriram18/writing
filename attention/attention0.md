@@ -210,8 +210,8 @@ Note that this pseudocode is pedagogical; in practice, these computations are im
 parallel.
 
 ### <span style="color: #007bff;">**4.2 Takeaways for Interpretability**</span>
-Below are a few important implications of the attention mechanism on how information flows through a
-transformer model. 
+Below are a few important implications of the attention mechanism on how information flows through
+a transformer model. 
 
 * <span style="color: #007bff;">**Separation of concerns.**</span> Queries and keys decide <span style="color: #2ecc71;">where to read</span>; values and $W_O$
   determine <span style="color: #2ecc71;">what to write</span>. In interpretability terms, this separation is described as
@@ -352,16 +352,28 @@ More generally, any path from $(t, l)$ to $(t + p, l + q)$ requires $q$ vertical
 horizontal displacement of $p$. The number of ways to arrange these moves is the binomial
 coefficient $\binom{p+q}{p}$. By [Stirling's approximation](https://en.wikipedia.org/wiki/Stirling%27s_approximation), this grows exponentially with $p + q$. Hence, as we
 scale context length and depth, the number of information pathways quickly becomes astronomical.
-This combinatorial explosion suggests possible redundancy: do we really need all the edges in our
-graph? Can we prune some edges, while still maintaining healthy information flow?
+
+This combinatorial explosion suggests possible redundancy: with so many paths available, could we 
+remove some edges without destroying connectivity? This intuition forms the basis for an entire
+family of efficient attention mechanisms that we'll now explore in detail.
 
 ---
 
 ## 8. Static Graph Sparsification
-Let's introduce some notation to make the ideas hinted at at the end of the previous section
-concrete. 
 
-### 8.1 Neighborhoods and Receptive Fields
+Let's take stock of what we've established so far.
+
+We've framed Transformers as defining information flow through a grid graph, where attention edges
+enable communication between streams. In Section 7, we observed that the number of paths in this
+graph from an input token to another node grows exponentially, prompting the following question: 
+do we really need every attention edge? Can we instead prune most edges while still maintaining 
+good connectivity - that is, ensuring information can still flow from any stream to any other stream within reasonable depth?
+
+This section explores exactly this idea. We'll start by introducing some terminology to make these
+notions precise, and then show how the frame of *static graph sparsification* unifies several
+efficient attention variants.
+
+### 8.1 Terminology
 <span style="color: #007bff;">**Neighborhoods**</span>
 
 Define $N(t, l)$ as the <span style="color: #007bff;">attention neighborhood</span> of node $(t, l)$: that is, the set of nodes that the
@@ -377,12 +389,19 @@ factor of $T/w$ saving over ordinary attention.
 The reasoning mirrors Section 5: both the query-key scoring and value-aggregation steps now cost
 $\mathcal{O}(wD)$ per token instead of $\mathcal{O}(tD)$.
 
+<span style="color: #007bff;">**Static vs Dynamic Sparsification**</span>
+The term *sparsification* in graph theory refers to removing some set of edges. To shrink 
+neighborhoods from the full set in ordinary attention is to *sparsify* the underlying
+information flow graph. This sparsification is *static* because we do it once upfront. *Dynamic*
+sparsity, by contrast, refers to techniques in which we remove edges based on the content of the
+sequence being processed. We'll explore dynamic sparsity in future articles, and stick to static
+methods here.
+
 <span style="color: #007bff;">**Receptive Field**</span>
 
-Let's also make concrete the notion of "preserving information flow." We'll define the
-<span style="color: #007bff;">**receptive field**</span> of node $(t, l)$ as the set of input tokens that this node can "see" through the network. More
-formally, it is the set of indices $i$ such that there exists a path in the
-information flow graph from node $(i, 0)$ to node $(t, l)$.
+Let's also make the notion of "preserving information flow" more concrete. We'll define the
+<span style="color: #007bff;">**receptive field**</span> of node $(t, l)$ as the set of input
+tokens that this node can "see" through the network. More formally, it is the set of indices $i$ such that there exists a path in the information flow graph from node $(i, 0)$ to node $(t, l)$.
 
 In ordinary attention, the node $(t, l)$ can "see" all tokens from 1 through $t$, 
 because it receives information from all previous streams, so the receptive field is the full set $\{1, \ldots, t\}$. As we shrink neighborhoods, we will also shrink the receptive fields of some tokens. Thus, there is a tradeoff between neighborhood size and receptive field: smaller
@@ -402,40 +421,42 @@ will be $\mathcal{O}(TD^2 + DTw)$
 
 **Receptive Field**
 
-Consider node $(t, 1)$. It can only see the $w$ most recent tokens, i.e. tokens $t, t-1, \ldots, t-w+1$. If we go up a layer, the receptive field approximately doubles: $(t, 2)$ can see back up to $(t-w+1, 1)$, which can see up to $(t-2*w+2, 0)$. Continuing in this manner, we see that the receptive field **grows linearly with depth**, i.e. the size of the receptive field of $(t, l)$ is $\mathcal{O}(lw)$. Put another way, we need about $T/w$ layers to ensure the last stream
-receives information from the first token. 
+Consider node $(t, 1)$. It can only see the $w$ most recent tokens, i.e. tokens $t, t-1, \ldots, t-w+1$. If we go up a layer, the receptive field increases by $w-1$: $(t, 2)$ can see back up to $(t-w+1, 1)$, which in turn can see up to $(t-2*w+2, 0)$. Continuing in this manner, at each layer,
+the receptive field extends by an additional $w-1$ positions, giving **linear growth with depth**:
+the size of the receptive field of $(t, l)$ is $\mathcal{O}(lw)$. Put another way, we need $O(T/w
+$ layers to ensure the last stream receives information from the first token.
 
 Sliding window attention thus gives us about a $T/w$ complexity saving over ordinary attention, 
 but at the cost of needing about $T/w$ layers for information to propagate over the entire 
 sequence. This is not great for long contexts, and so when sliding window attention is used in
 practice, it's typically used in conjunction with ordinary attention (e.g. alternating layers, as in GPT-OSS), as opposed to fully replacing it. 
 
-### 8.3 Dilated Attention
-Dilated attention is like sliding window attention but with "jumps." Instead of just looking at the last 
-$w$ nodes, we'll make jumps of length $D$, the dilation factor. In symbols, 
-$N(t, l) = \{(t, l), (t-d, l), (t-2d, l), (t-3d, l), \ldots, (t - (w-1)d)\}$
+A natural question to ask is: can we do better? That is, can we achieve a $T/w$ complexity saving,
+while growing receptive field faster than linearly in depth? The answer is yes: methods such as
+dilated attention and logarithmic attention are elegant ways of achieving exponentially growing
+receptive fields. Below we present logarithmic attention; the intuition for dilated attention is
+fairly similar.
 
-Consider what happens when we stack layers with dilation factors $1, w, w^2, \ldots$. In the first
-layer, each node just talks to its closest $w$ neighbors, as in sliding window. But in the second layer,
-each node talks to $w$ nodes, whose receptive fields are disjoint and each of size $w$, yielding a receptive field of size $\mathcal{O}(w^2)$. Continuing in this manner, we see that receptive field increases *exponentially* with depth, as opposed to linearly in sliding window attention. The time complexity
-is the same as in sliding window attention, but we now only need $\log_{w} T$ layers to establish full information flow, as opposed to $T/w$ in sliding window attention.
-
-### 8.4 Logarithmic Attention
-Instead of using a fixed size jump inside a layer, consider what happens if we use an 
-exponentially increasing jump size within a layer:
+### 8.3 Logarithmic Attention
+Instead of looking at just the most recent nodes, consider what happens if we use an exponentially increasing jump size within a layer:
 $N(t, l) = \{(t, l), (t-1, l), (t-2, l), (t-4, l), (t-8, l), \ldots, (t - 2^k)\}$,
 where $k = \lfloor \log_{2}(t) \rfloor$. 
+
+![Logarithmic Attention](logarithmic-attention.svg)
 
 The neighborhood size is now upper bounded by $\log_{2}(T)$, implying a time complexity of
 $\mathcal{O}(TD^2 + DT \log T)$. We have the following nice observation: 
 
 Claim: the receptive field of $(t, l)$ where $l > \log_{2}(t)$ is the full set $\{1, \ldots, t\}$. In other words, we achieve full information flow within $\log_{2}(t)$ layers. 
 
-Proof (sketch): the basic idea is that at any point we have the ability to jump right by any
-power of 2. So to get from $(t, 1)$ to $(t + d, l)$, simply follow the binary representation of $d$, i.e. write $d$ as a sum of powers of 2, and make those jumps. 
+Proof (sketch): First, observe that every attention edge in the graph connects nodes at a distance
+of a power of 2. To move information from $(t, 1)$ to $(t + d, l)$, decompose $d$ into its binary
+representation: $d = 2^{i_1} + 2^{i_2} + \ldots + 2^{i_m}$, where $m \le log_{2}(d)$. Each term 
+can be covered by a single attention hop; hence a path exists as long as $l \ge \log_{2}(d)$.
 
-### 8.5 Stochastic Masking
-The idea here is to choose random subsets at each layer:
+### 8.4 Stochastic Masking
+So far we've focused on deterministic constructions of the neighborhood. In stochastic masking, we
+instead use a random subset:
 $N(t, l)$ is a random subset of size $w$ drawn from $\{(1, l), \ldots, (t, l)\}$.
 
 As before, the time complexity is $\mathcal{O}(TD^2 + TDw)$. Now, why would we expect randomly chosen
@@ -443,111 +464,80 @@ neighborhoods to yield good connectivity patterns? While a deep dive on this is 
 we'll briefly mention that:
 
 1. The field of [spectral graph theory](https://web.stanford.edu/class/cs168/l/l11.pdf) quantifies
-notions of "graphs with good information flow" we've been alluding to, via eigenvalues of matrices associated with the graph.
+notions of "graphs with good information flow" beyond just receptive fields, via eigenvalues of
+matrices associated with the graph.
 
 2. [Expanders](https://terrytao.wordpress.com/2011/12/02/245b-notes-1-basic-theory-of-expander-graphs/) are a special class of graphs that are sparse but preserve good information flow.
 
 3. Random bipartite graphs, generated with appropriate hyperparameters, [are expanders with high
 probability](https://theory.epfl.ch/courses/topicstcs/Lecture3.pdf).
 
-### 8.6 Global Tokens & Sink Tokens
-Global tokens can be used in conjunction with other static sparsification methods. The basic idea is to augment the neighborhood of each node with a common set of nodes called global tokens:
-$N(t, l) = \{(g_1, l), (g_2, l), \ldots, (g_k, l)\} \cup \text{PrevNeighborhood}(t, l)$
+### 8.5 Global Tokens & Sink Tokens
+When sparsifying a graph, we naturally destroy some connectivity structure. The basic idea of
+global tokens is to mitigate some of this damage by augmenting the (sparsified) neighborhood of
+each node with a common set of nodes called global tokens:
+$N(t, l) = \{(g_1, l), (g_2, l), \ldots, (g_k, l)\} \cup N_{base}(t, l)$,
+where $N_{base}(t, l)$ is the neighborhood from whichever base sparsification 
+method we're augmenting (e.g. sliding window).
 
-Sink tokens are a particular case, where the global tokens are the first $k$ tokens of the sequence
-for some $k$. This technique is used in [GPT-OSS](https://openai.com/index/introducing-gpt-oss/) in the sliding window attention layers. A theoretical basis for
-global tokens is suggested in [taking a graph view](https://publish.obsidian.md/the-tensor-throne/Transformers+as+GNNs/Attention+sinks+from+the+graph+perspective), and sink tokens in
-particular were advocated in the somewhat provocative post [Attention is Off By One](https://www.evanmiller.org/attention-is-off-by-one.html).
+While we've motivated global tokens through the frame of connectivity preservation, they're often
+motivated by empirical findings about *attention sinks*. Interestingly, the [graph lens](https://publish.obsidian.md/the-tensor-throne/Transformers+as+GNNs/Attention+sinks+from+the+graph+perspective) reveals a deep connection between these.
 
----
+### 8.6 Comparing Static Sparsification Methods
+The table below summarizes the static sparsification methods we've discussed. RF here stands for
+"Receptive Field."
 
-## 9. The Landscape of Efficient Attention Mechanisms
+| Technique | Neighborhood Size | Complexity | RF Growth | Full RF Depth |
+|-----------|------------------|------------|-----------|---------------|
+| Ordinary Attention | $t$ | $O(T^2D)$ | Immediate | 1 |
+| Sliding Window | $w$ | $O(TDw)$ | Linear | $T/w$ |
+| Logarithmic | $\log_{2}(t)$ | $O(TD log T)$ | Exponential | $log_{2}(T)$ |
+| Dilated | $w$ | $O(TDw)$ | Exponential | $\log_{w}T$ |
+| Stochastic | $w$ | $O(TDw)$ | Exponential (w.h.p.) | $\log_{w}T$ (w.h.p.) |
 
-So far we've developed a mental framework for understanding what's going on in Transformer models,
-and used this framework to understand one particular family of efficient attention techniques as static sparsification of the underlying information flow graph. We'll now zoom out a bit, and briefly sketch the broader
-landscape of efficient attention techniques, situating each within the framework we've developed.
-
-### <span style="color: #007bff;">**9.1 Static Sparsification**</span>
-This was the focus of the previous section. The core problem addressed by these techniques is the
-quadratic cost involved with all query-key and attention weight-value interactions, and solutions
-involve statically defining $N(t, l)$ to reduce communication in both QK and OV circuits while
-preserving receptive field growth. 
-
-Notable techniques and papers: sliding windows and global
-nodes ([Longformer](https://arxiv.org/abs/2004.05150)), dilations and block patterns ([BigBird](https://arxiv.org/abs/2007.14062), [H-Transformer-1D](https://arxiv.org/abs/2107.11906)), strided/block-sparse layouts ([Sparse Transformer](https://arxiv.org/abs/1904.10509)), star-shaped global hubs ([Star-Transformer](https://arxiv.org/abs/1902.09113)), and hierarchical dilations across layers ([LongNet](https://arxiv.org/abs/2307.02486)).
-
-### <span style="color: #007bff;">**9.2 Dynamic Sparsification and Routing**</span>
-Problem: static sparsification is <span style="color: #2ecc71;">content-blind</span>, and involves potentially imbuing models with our imperfect structural priors about sequence modeling. An arguably
-more "[bitter lesson](http://www.incompleteideas.net/IncIdeas/BitterLesson.html)-pilled" idea is *dynamic* sparsity: let the model decide what edges
-matter based on the content of the sequence being processed, thereby constructing $N(t, l)$
-dynamically per-token.
-
-Core challenge: Dynamic sparsity poses a bit of a chicken and egg problem: how do we know which
-previous nodes are relevant, without actually scoring each previous key? Some ideas include: 
-* LSH attention ([Reformer](https://arxiv.org/abs/2001.04451)): use [locality sensitive
-hashing](https://en.wikipedia.org/wiki/Locality-sensitive_hashing) to bucket nearby queries
-and keys together, and only attend within buckets.
-* [Routing Transformers](https://arxiv.org/abs/2003.05997): learn cluster assignments or router tokens that group related positions.
-* Approximate nearest neighbor methods: use ANN indices to retrieve top-k keys per query.
-* [Deepseek Sparse Attention](https://huggingface.co/deepseek-ai/DeepSeek-V3.2-Exp): use two rounds. The first is a lightweight scoring mechanism
-("lightning indexer") that is used to define $N(t, l)$, while the second does a full attention
-score computation only on the neighborhood.
-
-### <span style="color: #007bff;">**9.3 Kernel and Low Rank Methods: Factorized Communication.**</span>
-Recall the standard algebraic formulation of attention:
-
-```
-Attn(Q, K, V) = Softmax( Mask(Q K^T) / √d ) · V
-```
-
-Many efficiency methods revisit this equation: they approximate the softmax kernel, approximate the
-attention matrix by a low rank matrix, and/or reorder the multiplications so that $K^TV$ is computed
-first and $QK^T$ is never materialized.
-
-<span style="color: #007bff;">**Complementary graph view**</span>
-From the perspective of information flow, these methods introduce <span style="color: #007bff;">**intermediary nodes**</span> that mediate communication.
-Instead of every node directly attending to every other, nodes first broadcast their values into a shared set of intermediaries, and later receive aggregated information back from them.
-The result is a factor graph, and communication occurs in two hops, node → intermediary → node.
-
-This factorized communication view unifies a range of specific techniques:
-* Kernelized attention ([Performer](https://arxiv.org/abs/2009.14794), [Linear Transformer](https://arxiv.org/abs/2006.16236), [CosFormer](https://arxiv.org/abs/2202.08791)) – feature maps applied to
-keys and queries effectively define intermediate nodes, that actors write to and read from based on
-their keys and queries. 
-
-* Low-rank and landmark methods ([Linformer](https://arxiv.org/abs/2006.04768), [Nyströmformer](https://arxiv.org/abs/2102.03902), [Perceiver IO](https://arxiv.org/abs/2107.14795)) – explicit landmark or latent nodes that summarize many streams.
-
-
-### <span style="color: #007bff;">**9.4 Graph Augmentation: Hubs, Highways, and Compression**</span>
-A number of efficient attention techniques can be viewed as augmenting a graph dominated by *local*
-communication with *global* connectivity structure, such as long-range highways, summary blocks,
-and global hubs. Examples include: 
-* Caching past hidden states or compressing them into summaries ([Transformer XL](https://arxiv.org/abs/1901.02860), [Compressive Transformer](https://arxiv.org/abs/1911.05507)).
-* Multi-scale graphs (hierarchical pyramids, blockwise attention with cross-block connectors).
-* [Retrieval-Augmented Generation](https://arxiv.org/abs/2005.11401), which can be viewed as augmenting our grid graph with off-grid nodes.
-
-
-### <span style="color: #007bff;">**9.5 Exact IO-Aware Kernels**</span>
-In this article we've mostly focused on conceptual aspects of Transformers, whereas efficient
-real-world implementations require contending with the realities of modern hardware. Nevertheless,
-the framework we've developed provides a helpful lens for understanding techniques like [Flash
-Attention](https://arxiv.org/abs/2205.14135) and [Paged Attention](https://arxiv.org/abs/2309.06180). These can be viewed as defining **tilings** and **traversals** of the grid graph that compute attention in a *data-locality-aware* way, ensuring information moves efficiently across the hardware as well as across the model.
-
-
-### <span style="color: #007bff;">**9.6 KV-Efficiency and Head-Sharing**</span>
-A widely used idea in frontier models is to share keys and values across attention heads, while
-keeping the queries separate. Key techniques include [Multi Query Attention](https://arxiv.org/abs/1911.02150) and [Grouped Query Attention](https://arxiv.org/pdf/2305.13245). Doing so shrinks KV
-cache memory by a factor of the group size.
-
-Some intuition for why we can get away with this comes from thinking about QK and OV circuits: it's the *combination* of queries and keys that determines where we look; thus, to ensure that different 
-heads can look in different places, it suffices to vary just one of them across heads. Analogously
-for the OV circuit - even with shared values, different heads can still write to different subspaces of the residual stream due to $W_O$.
+### 8.7 Weaknesses of Static Sparsification
+Interestingly, despite the theoretical advantages of logarithmic attention, dilated attention, and
+stochastic masking, sliding window attention is much more commonly used in practice. One potential
+reason is that static sparsification in general may imbue the model with an imperfect
+structural prior, hurting generalization - an idea related to the [Bitter Lesson](http://www.incompleteideas.net/IncIdeas/BitterLesson.html), and one we will explore in 
+more depth in a future article on dynamic sparsity. Nevertheless, understanding static sparsification is essential, as the ideas developed here form the basis of understanding more powerful dynamic sparsification methods.
 
 ---
 
-## 10. Summary and Next Steps
-We've introduced a handful of core lenses for thinking about Transformer internals, and used them to
-explore a number of ideas from efficient attention variant design, mechanistic interpretability, and
-sparsity. With this foundation established, we hope to go deeper in future articles into some topics
-briefly mentioned here, such as kernelized attention and Deepseek's Sparse Attention. We also hope
-to use the lenses developed here to explore other topics we didn't have a chance to cover, such as
-MoEs, cartridges, sparse memory layers, continual learning, and others. 
+## 9. Conclusion and Future Directions
+We've developed a lens for viewing transformers through information flow graphs, yielding several key frames that illuminate both design and mechanism:
+
+- The grid graph as a substrate for information flow
+- Residual streams as fixed-bandwidth information highways
+- Attention as an interface for cross-stream communication
+- QK and OV circuits as separable concerns (where vs. what)
+- Attention heads as low-rank, additive writers into subspaces
+- Static sparse attention variants as connectivity-preserving graph 
+  sparsification
+
+Through these frames, we've seen how diverse attention variants emerge as different strategies for
+pruning edges while preserving receptive fields. The graph lens makes their tradeoffs explicit and comparable.
+
+In future articles, we'll apply this same lens to more ideas from the research frontier:
+
+**Dynamic Sparsification and Routing** 
+Instead of committing to fixed neighborhoods upfront, what if models dynamically select which edges
+matter based on content? We'll show how several efficient attention methods, from locality
+sensitive hashing in Reformer to DeepSeek's recent "lightning indexer" can be understood as
+dynamic graph sparsification, where $N(t,l)$ becomes a function of the sequence being processed.
+
+**Kernelized Attention and Factor Graphs**
+Techniques like Performer, Linear Transformer, and Linformer are typically understood through
+linear algebra: kernel approximations, low-rank factorizations, reordered matrix multiplications.
+But there's a complementary, unifying graph view: these methods can be understood as introducing
+new intermediary nodes, which the original nodes broadcast to and receive from. The resulting
+structure is a factor graph.
+
+**Sparse Memory Layers and Continual Learning**
+While we've focused on attention, the graph lens and the sparsity theme extend to emerging ideas
+for improving or replacing MLPs. Recent work on sparse memory layers (like Meta's continual
+learning via sparse memory finetuning) replaces dense MLPs with sparse, addressable memory that
+can be selectively updated. This enables models to acquire new knowledge without catastrophic forgetting, a longstanding challenge in continual learning.
+
+The core takeaway we hope to leave readers with is: reasoning about transformers through their information flow graphs - analyzing topology, dynamics, and routing mechanisms - provides a 
+unifying language for understanding the landscape of modern architectures, from attention variants to memory systems to continual learning.
