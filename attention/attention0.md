@@ -1,4 +1,4 @@
-# Title (TODO)
+# Information Flow Graphs: A Unifying Lens for Transformers and Efficient Attention
 
 ## 1. Introduction
 
@@ -12,8 +12,7 @@ In particular, our (perhaps ambitious) thesis is: despite the diversity and appa
 ideas in this space, <span style="color: #007bff">**a handful of mental models
 and metaphors can equip readers comfortable with the basics to understand the research frontier**</span>.
 
-To this end, we hope to explore the following ideas in this and future articles. (Don't worry if
-many of these terms don't make sense yet!)
+To this end, we hope to explore the following ideas in this and future articles. (If some of these terms are unfamiliar, that's expected - we'll develop each from first principles.)
 
 * <span style="color: #007bff">**Transformer models**</span> as <span style="color: #2ecc71;">*defining information flow through a grid graph*</span>
 * <span style="color: #007bff">**Residual streams**</span> as <span style="color: #2ecc71;">*fixed-bandwidth information highways*</span>
@@ -148,7 +147,7 @@ actually plan ahead, a phenomenon verified empirically in [work by Anthropic](ht
 
 With this picture in mind, we can make concrete our framing of transformers as a graph.
 
-(TODO - insert image here)
+![Transformer Grid Full](transformer-grid-full.svg)
 
 * <span style="color: #007bff">**Vertical edges**</span> $(t, l) \to (t, l+1)$ represent the
 evolution of a token's representation via residual updates between layers.
@@ -302,10 +301,10 @@ residual stream through its own projection slice $W_O^h$.
 The dual framing of multi-head attention plays a significant role in mechanistic interpretability
 work. A few consequences:
 
-<span style="color: #007bff;">**Head specialization and QK circuits**</span>
-The work partitioning view shows how different heads can specialize to "look for different things",
-composing into sophisticated QK circuits. [Induction heads](TODO) are a beautiful example of QK circuitry in
-action.
+<span style="color: #007bff;">**Head specialization and circuits**</span>
+The work partitioning view shows how different heads can specialize to "look for different things,"
+composing into sophisticated circuits. [Induction heads](https://transformer-circuits.pub/2022/in-context-learning-and-induction-heads/index.html) are a beautiful example of
+head composition across layers in action.
 
 <span style="color: #007bff;">**Low-rank, subspace-targeted writes**</span>
 A head can only modify the residual within the column space of $W_O^h$ - at most rank $d_h$. Heads
@@ -319,8 +318,8 @@ of $W_O$ therefore partitions bandwidth and mediates the extent to which separat
 <span style="color: #007bff;">**Implicit memory management**</span>
 Updates are additive and persistent. Information written by a head persists unless future layers
 actively overwrite or counter-write it. Since bandwidth is finite (dimension $D$), writing one thing
-necessarily crowds others. Some heads compress or move information, others cache patterns for
-downstream use, and some act as cleaners.
+necessarily crowds others. Research by Anthropic has found empirically that some heads perform a
+sort of "memory management" role, actively "deleting previous writes" that are no longer needed.
 
 ---
 
@@ -423,7 +422,7 @@ will be $\mathcal{O}(TD^2 + DTw)$
 
 Consider node $(t, 1)$. It can only see the $w$ most recent tokens, i.e. tokens $t, t-1, \ldots, t-w+1$. If we go up a layer, the receptive field increases by $w-1$: $(t, 2)$ can see back up to $(t-w+1, 1)$, which in turn can see up to $(t-2*w+2, 0)$. Continuing in this manner, at each layer,
 the receptive field extends by an additional $w-1$ positions, giving **linear growth with depth**:
-the size of the receptive field of $(t, l)$ is $\mathcal{O}(lw)$. Put another way, we need $O(T/w
+the size of the receptive field of $(t, l)$ is $\mathcal{O}(lw)$. Put another way, we need $O(T/w)
 $ layers to ensure the last stream receives information from the first token.
 
 Sliding window attention thus gives us about a $T/w$ complexity saving over ordinary attention, 
@@ -451,7 +450,7 @@ Claim: the receptive field of $(t, l)$ where $l > \log_{2}(t)$ is the full set $
 
 Proof (sketch): First, observe that every attention edge in the graph connects nodes at a distance
 of a power of 2. To move information from $(t, 1)$ to $(t + d, l)$, decompose $d$ into its binary
-representation: $d = 2^{i_1} + 2^{i_2} + \ldots + 2^{i_m}$, where $m \le log_{2}(d)$. Each term 
+representation: $d = 2^{i_1} + 2^{i_2} + \ldots + 2^{i_m}$, where $m \le \log_{2}(d)$. Each term 
 can be covered by a single attention hop; hence a path exists as long as $l \ge \log_{2}(d)$.
 
 ### 8.4 Stochastic Masking
@@ -491,7 +490,7 @@ The table below summarizes the static sparsification methods we've discussed. RF
 |-----------|------------------|------------|-----------|---------------|
 | Ordinary Attention | $t$ | $O(T^2D)$ | Immediate | 1 |
 | Sliding Window | $w$ | $O(TDw)$ | Linear | $T/w$ |
-| Logarithmic | $\log_{2}(t)$ | $O(TD log T)$ | Exponential | $log_{2}(T)$ |
+| Logarithmic | $\log_{2}(t)$ | $O(TD \log T)$ | Exponential | $\log_{2}(T)$ |
 | Dilated | $w$ | $O(TDw)$ | Exponential | $\log_{w}T$ |
 | Stochastic | $w$ | $O(TDw)$ | Exponential (w.h.p.) | $\log_{w}T$ (w.h.p.) |
 
