@@ -427,7 +427,9 @@ neighborhoods yield lower attention cost, but also lower receptive field.
 ### 8.2 Sliding Window Attention
 In Sliding Window Attention, each actor attends only to its $w$ most recent neighbors. In symbols,
 
-$N(t, l) = \{(\max(1, t-w+1), l), \ldots, (t, l)\}$
+```math
+N(t, l) = \{(\max(1, t-w+1), l), \ldots, (t, l)\}
+```
 
 ![Sliding-Window](sliding-window.svg)
 
