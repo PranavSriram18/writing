@@ -31,23 +31,23 @@ many of these terms don't make sense yet!)
 
 ## 2. Prerequisites and Notes on Style
 
-<span style="color: #007bff; font-weight: bold;">**Prerequisites**</span>
+<span style="color: #007bff;">**Prerequisites**</span>
 
 This article assumes you're comfortable with the basics of the transformer architecture,
 particularly causal self-attention. If you need a refresher, we recommend [Andrej Karpathy's video](https://www.youtube.com/watch?v=kCc8FmEb1nY), [3Blue1Brown's video](https://www.youtube.com/watch?v=wjZofJX0v4M), and [The Illustrated Transformer](https://jalammar.github.io/illustrated-transformer/) as excellent starting points.
 
-<span style="color: #007bff; font-weight: bold;">**Scope**</span>
+<span style="color: #007bff;">**Scope**</span>
 
 We focus exclusively on causal, decoder-only transformers (like GPT-style models). Throughout this article, "attention" or "ordinary attention" refers to the standard causal self-attention mechanism used in these models, whereas attention variants will use additional qualifiers (e.g. "sliding
 window attention").
 
-<span style="color: #007bff; font-weight: bold;">**Inspiration**</span>
+<span style="color: #007bff;">**Inspiration**</span>
 
 This article is heavily inspired by [Anthropic's Mathematical Framework for
 Transformer Circuits](https://transformer-circuits.pub/2021/framework/index.html). One of our goals
 is to provide a gentler onramp to some of the deep technical insights expounded in that work.
 
-<span style="color: #007bff; font-weight: bold;">**Caveats**</span>
+<span style="color: #007bff;">**Caveats**</span>
 
 Our emphasis is on building intuition rather than mathematical rigor or implementation details. To this end, we take the following liberties:
 - Omit architectural and implementation details that don't change the core story (like
@@ -55,7 +55,7 @@ normalizers, regularizers, numerical issues, etc.)
 - Liberally anthropomorphize (introducing "actors" that "want" information, etc.)
 - Depict parallel computations as serial when it aids understanding.
 
-<span style="color: #007bff; font-weight: bold;">**Notation**</span>
+<span style="color: #007bff;">**Notation**</span>
 
 We'll use the following notation throughout. Our working model will be a causal, decoder-only
 transformer with $L$ layers, hidden dimension $D$, and context length $T$. We'll denote input tokens by $w_1, \ldots, w_T$, and use $x_{t,l}$ to denote the representation of token $t$ at the input to layer $l$. We
@@ -66,7 +66,7 @@ $t$th token entering the first Transformer (i.e. after token embedding and posit
 
 # 3. The Transformer as a Grid of Information Flow
 
-### <span style="color: #007bff; font-weight: bold;"> 3.1 Introducing the Grid View </span>
+### <span style="color: #007bff;"> 3.1 Introducing the Grid View </span>
 Our core frame will be to view transformers in terms of information flowing through a grid. The
 two axes of this grid are time (tokens) and depth (layers). Each node $(t, l)$ on the grid
 represents the state of token $t$ after layer $l$, which we denote $x_{t,l}$.
@@ -94,27 +94,27 @@ and instead as a <span style="color: #007bff;">**series of parallel columns**</s
 or residual streams, are persistent information channels carrying token representations upwards
 through the model.
 
-### <span style="color: #007bff; font-weight: bold;">**3.2 The Journey of a Single Token**</span>
+### <span style="color: #007bff;">**3.2 The Journey of a Single Token**</span>
 
 Given a sequence of input tokens $w_1, \ldots, w_T$, focus on how a single token $w_t$ flows through
 its residual stream. 
 
-1. The token enters its stream as the sum of its word <span style="color: #007bff; font-weight: bold;">**embedding vector**</span> $e_t$ and
-   <span style="color: #007bff; font-weight: bold;">**positional embedding**</span> $p_t$. 
+1. The token enters its stream as the sum of its word <span style="color: #007bff;">**embedding vector**</span> $e_t$ and
+   <span style="color: #007bff;">**positional embedding**</span> $p_t$. 
 
-2. Each layer computes an update that is <span style="color: #007bff; font-weight: bold;">added</span> to the stream - hence the term
+2. Each layer computes an update that is <span style="color: #007bff;">added</span> to the stream - hence the term
    <span style="color: #2ecc71;">residual</span>. The token's representation evolves through a sequence of intermediate states
    $x_{t,0}, x_{t,1}, \ldots, x_{t,L}$.
 
 3. At the final layer, the representation is multiplied by the unembedding matrix to produce logits
    over the vocabulary, which are then normalized into a probability distribution for the next token.
 
-We can thus think of the residual stream as an <span style="color: #007bff; font-weight: bold;">**information highway**</span>, in which the current
+We can thus think of the residual stream as an <span style="color: #007bff;">**information highway**</span>, in which the current
 token evolves through a progressive sequence of representations that culminate in a [sufficient statistic](https://www.youtube.com/watch?v=5j4E2FRR384) for
- the distribution of the next token. Importantly, this highway has a <span style="color: #007bff; font-weight: bold;">fixed bandwidth</span>, dictated by
+ the distribution of the next token. Importantly, this highway has a <span style="color: #007bff;">fixed bandwidth</span>, dictated by
  the dimensionality $D$ of the residual stream state. 
 
-### <span style="color: #007bff; font-weight: bold;">**3.3 Residual Actors and Attention as an Interface**</span>
+### <span style="color: #007bff;">**3.3 Residual Actors and Attention as an Interface**</span>
 
 Let's now unpack what happens inside a layer. A metaphor we'll introduce is to imagine an "actor"
 associated with each residual stream within a layer, which we'll call a "residual actor." We'll imagine each actor as responsible for implementing the layer update for its stream.  
@@ -136,7 +136,7 @@ x_{t,l+1} = z_{t,l} + MLP(z_{t,l})
 With this framing, a single layer is implemented by multiple *collaborating actors*, using attention
 as the <span style="color: #2ecc71;">*interface*</span> for communication.
 
-### <span style="color: #007bff; font-weight: bold;">**3.4 Collaborating Actors and Goals**</span>
+### <span style="color: #007bff;">**3.4 Collaborating Actors and Goals**</span>
 Continuing with the actor metaphor, we ask: what are the goals of each actor? Well, at the end of
 the $t$-th residual stream, the model needs to predict the $t+1$-th token $w_{t+1}$. So, the *immediate goal* of actor $t$ is to evolve the representation $x_{t, l}$ towards a representation predictive of the next token. But because *future actors* can also read from actor $t$, it also has a secondary
 goal: compute information useful for those future actors.
@@ -144,16 +144,16 @@ goal: compute information useful for those future actors.
 This framing provides a first-principles view of how models trained for next-token prediction can
 actually plan ahead, a phenomenon verified empirically in [work by Anthropic](https://www.anthropic.com/research/tracing-thoughts-language-model).
 
-### <span style="color: #007bff";>**3.5 The grid as a graph**</span>
+### <span style="color: #007bff;">**3.5 The grid as a graph**</span>
 
 With this picture in mind, we can make concrete our framing of transformers as a graph.
 
 (TODO - insert image here)
 
-* <span style="color: #007bff">**Vertical edges**</span> \((t, l) \to (t, l+1)\) represent the
+* <span style="color: #007bff">**Vertical edges**</span> $\((t, l) \to (t, l+1)\)$ represent the
 evolution of a token's representation via residual updates between layers.
 
-* <span style="color: #007bff;">**Horizontal edges**</span> \((u, l) \to (t, l)\) represent information flow from earlier to later streams.
+* <span style="color: #007bff;">**Horizontal edges**</span> $\((u, l) \to (t, l)\)$ represent information flow from earlier to later streams.
 
 In this view, a transformer is a two-dimensional graph of collaborating actors, passing information forward in time through attention, and upwards in depth through residual updates.
 ---
@@ -212,11 +212,11 @@ parallel.
 Below are a few important implications of the attention mechanism on how information flows through a
 transformer model. 
 
-* <span style="color: #007bff; font-weight: bold;">**Separation of concerns.**</span> Queries and keys decide <span style="color: #2ecc71;">where to read</span>; values and $W_O$
+* <span style="color: #007bff;">**Separation of concerns.**</span> Queries and keys decide <span style="color: #2ecc71;">where to read</span>; values and $W_O$
   determine <span style="color: #2ecc71;">what to write</span>. In interpretability terms, this separation is described as
-  <span style="color: #007bff; font-weight: bold;">**QK and OV circuits**</span>. 
+  <span style="color: #007bff;">**QK and OV circuits**</span>. 
 
-* <span style="color: #007bff; font-weight: bold;">**Linearity Modulo Attention Pattern.**</span> The only source of nonlinearity comes from the softmax
+* <span style="color: #007bff;">**Linearity Modulo Attention Pattern.**</span> The only source of nonlinearity comes from the softmax
   operation, which is part of the QK circuit (determining the attention pattern). If we fix the
   attention pattern, the entire attention operation becomes a linear function of its inputs.
 
@@ -303,20 +303,23 @@ work. A few consequences:
 
 <span style="color: #007bff;">**Head specialization and QK circuits**</span>
 The work partitioning view shows how different heads can specialize to "look for different things",
-composing into sophisticated QK circuits.
+composing into sophisticated QK circuits. [Induction heads](TODO) are a beautiful example of QK circuitry in
+action.
 
 <span style="color: #007bff;">**Low-rank, subspace-targeted writes**</span>
 A head can only modify the residual within the column space of $W_O^h$ - at most rank $d_h$. Heads
-are low-rank writers into subspaces of the shared stream.
+are hence low-rank writers into subspaces of the shared stream.
 
 <span style="color: #007bff;">**Potentially limited interaction between heads**</span>
 If two heads write largely into disjoint or orthogonal subspaces, later computation may treat their
-contributions as independent. Overlap enables interaction or interference. The geometry of $W_O$
-partitions bandwidth.
+contributions as independent. Overlap enables constructive or destructive interference. The geometry
+of $W_O$ therefore partitions bandwidth and mediates the extent to which separate heads interact.
 
 <span style="color: #007bff;">**Implicit memory management**</span>
-Updates are additive and persistent. Information written by a head persists unless future layers actively overwrite or counter-write it. Since bandwidth is finite (dimension $D$), writing one thing
-necessarily crowds others. Some heads compress or move information, others cache patterns for downstream use, and some act as cleaners.
+Updates are additive and persistent. Information written by a head persists unless future layers
+actively overwrite or counter-write it. Since bandwidth is finite (dimension $D$), writing one thing
+necessarily crowds others. Some heads compress or move information, others cache patterns for
+downstream use, and some act as cleaners.
 ---
 
 # 7. The Combinatorics of Attention-Based Information Flows
@@ -359,7 +362,7 @@ concrete.
 ### 8.1 Neighborhoods and Receptive Fields
 <span style="color: #007bff;">**Neighborhoods**</span>
 
-Define $N(t, l)$ as the <span style="color: #007bff; font-weight: bold;">attention neighborhood</span> of node $(t, l)$: that is, the set of nodes that the
+Define $N(t, l)$ as the <span style="color: #007bff;">attention neighborhood</span> of node $(t, l)$: that is, the set of nodes that the
 actor at $(t, l)$ can attend to. The actor at $(t, l)$ computes attention only over nodes in
 $N(t, l)$, ignoring all others. In ordinary attention, we have $N(t, l) = \{(1, l), (2, l), \ldots, (t, l)\}$, i.e. all previous nodes in the current layer. 
 
@@ -372,10 +375,10 @@ factor of $T/w$ saving over ordinary attention.
 The reasoning mirrors Section 5: both the query-key scoring and value-aggregation steps now cost
 $\mathcal{O}(wD)$ per token instead of $\mathcal{O}(tD)$.
 
-<span style="color: #007bff; font-weight: bold;">**Receptive Field**</span>
+<span style="color: #007bff;">**Receptive Field**</span>
 
 Let's also make concrete the notion of "preserving information flow." We'll define the
-<span style="color: #007bff; font-weight: bold;">**receptive field**</span> of node $(t, l)$ as the set of input tokens that this node can "see" through the network. More
+<span style="color: #007bff;">**receptive field**</span> of node $(t, l)$ as the set of input tokens that this node can "see" through the network. More
 formally, it is the set of indices `i` such that there exists a path in the
 information flow graph from node `(i, 0)` to node $(t, l)$.
 
@@ -419,7 +422,7 @@ is the same as in sliding window attention, but we now only need $log_{w}T$ laye
 Instead of using a fixed size jump inside a layer, consider what happens if we use an 
 exponentially increasing jump size within a layer:
 $N(t, l) = {(t, l), (t-1, l), (t-2, l), (t-4, l), (t-8, l), ... (t - 2^k)}$,
-where $k = \floor{log_2(t)}$. 
+where $k = \floor{\log_{2}(t)}$. 
 
 The neighborhood size is now upper bounded by $log_{2}(T)$, implying a time complexity of
 $O(TD^2 + DTlogT)$. We have the following nice observation: 
@@ -462,7 +465,7 @@ So far we've developed a mental framework for understanding what's going on in T
 and used this framework to understand one particular family of efficient attention techniques as static sparsification of the underlying information flow graph. We'll now zoom out a bit, and briefly sketch the broader
 landscape of efficient attention techniques, situating each within the framework we've developed.
 
-### <span style="color: #007bff; font-weight: bold;">**9.1 Static Sparsification**</span>
+### <span style="color: #007bff;">**9.1 Static Sparsification**</span>
 This was the focus of the previous section. The core problem addressed by these techniques is the
 quadratic cost involved with all query-key and attention weight-value interactions, and solutions
 involve statically defining $N(t, l)$ to reduce communication in both QK and OV circuits while
@@ -471,7 +474,7 @@ preserving receptive field growth.
 Notable techniques and papers: sliding windows and global
 nodes ([Longformer](https://arxiv.org/abs/2004.05150)), dilations and block patterns ([BigBird](https://arxiv.org/abs/2007.14062), [H-Transformer-1D](https://arxiv.org/abs/2107.11906)), strided/block-sparse layouts ([Sparse Transformer](https://arxiv.org/abs/1904.10509)), star-shaped global hubs ([Star-Transformer](https://arxiv.org/abs/1902.09113)), and hierarchical dilations across layers ([LongNet](https://arxiv.org/abs/2307.02486)).
 
-### <span style="color: #007bff; font-weight: bold;">**9.2 Dynamic Sparsification and Routing**</span>
+### <span style="color: #007bff;">**9.2 Dynamic Sparsification and Routing**</span>
 Problem: static sparsification is <span style="color: #2ecc71;">content-blind</span>, and involves potentially imbuing models with our imperfect structural priors about sequence modeling. An arguably
 more "[bitter lesson](http://www.incompleteideas.net/IncIdeas/BitterLesson.html)-pilled" idea is *dynamic* sparsity: let the model decide what edges
 matter based on the content of the sequence being processed, thereby constructing $N(t, l)$
@@ -488,7 +491,7 @@ and keys together, and only attend within buckets.
 ("lightning indexer") that is used to define $N(t, l)$, while the second does a full attention
 score computation only on the neighborhood.
 
-### <span style="color: #007bff; font-weight: bold;">**9.3 Kernel and Low Rank Methods: Factorized Communication.**</span>
+### <span style="color: #007bff;">**9.3 Kernel and Low Rank Methods: Factorized Communication.**</span>
 Recall the standard algebraic formulation of attention:
 
 ```
@@ -499,7 +502,7 @@ Many efficiency methods revisit this equation: they approximate the softmax kern
 attention matrix by a low rank matrix, and/or reorder the multiplications so that $K^TV$ is computed
 first and $QK^T$ is never materialized.
 
-<span style="color: #007bff; font-weight: bold;">**Complementary graph view**</span>
+<span style="color: #007bff;">**Complementary graph view**</span>
 From the perspective of information flow, these methods introduce <span style="color: #007bff;">**intermediary nodes**</span> that mediate communication.
 Instead of every node directly attending to every other, nodes first broadcast their values into a shared set of intermediaries, and later receive aggregated information back from them.
 The result is a factor graph, and communication occurs in two hops, node → intermediary → node.
@@ -512,7 +515,7 @@ their keys and queries.
 * Low-rank and landmark methods ([Linformer](https://arxiv.org/abs/2006.04768), [Nyströmformer](https://arxiv.org/abs/2102.03902), [Perceiver IO](https://arxiv.org/abs/2107.14795)) – explicit landmark or latent nodes that summarize many streams.
 
 
-### <span style="color: #007bff; font-weight: bold;">**9.4 Graph Augmentation: Hubs, Highways, and Compression**</span>
+### <span style="color: #007bff;">**9.4 Graph Augmentation: Hubs, Highways, and Compression**</span>
 A number of efficient attention techniques can be viewed as augmenting a graph dominated by *local*
 communication with *global* connectivity structure, such as long-range highways, summary blocks,
 and global hubs. Examples include: 
@@ -521,14 +524,14 @@ and global hubs. Examples include:
 * [Retrieval-Augmented Generation](https://arxiv.org/abs/2005.11401), which can be viewed as augmenting our grid graph with off-grid nodes.
 
 
-### <span style="color: #007bff; font-weight: bold;">**9.5 Exact IO-aware kernels.**</span>
+### <span style="color: #007bff;">**9.5 Exact IO-aware kernels.**</span>
 In this article we've mostly focused on conceptual aspects of Transformers, whereas efficient
 real-world implementations require contending with the realities of modern hardware. Nevertheless,
 the framework we've developed provides a helpful lens for understanding techniques like [Flash
 Attention](https://arxiv.org/abs/2205.14135) and [Paged Attention](https://arxiv.org/abs/2309.06180). These can be viewed as defining **tilings** and **traversals** of the grid graph that compute attention in a *data-locality-aware* way, ensuring information moves efficiently across the hardware as well as across the model.
 
 
-### <span style="color: #007bff; font-weight: bold;">**9.6 KV-efficiency and head-sharing.**</span>
+### <span style="color: #007bff;">**9.6 KV-efficiency and head-sharing.**</span>
 A widely used idea in frontier models is to share keys and values across attention heads, while
 keeping the queries separate. Key techniques include [Multi Query Attention](https://arxiv.org/abs/1911.02150) and [Grouped Query Attention](https://arxiv.org/pdf/2305.13245). Doing so shrinks KV
 cache memory by a factor of the group size.
