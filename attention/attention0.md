@@ -9,23 +9,23 @@ article is to bridge the gulf between introductory material and the rapidly evol
 these fields, and deepen readers' intuition on Transformer internals and attention variants.
 
 In particular, our (perhaps ambitious) thesis is: despite the diversity and apparent complexity of
-ideas in this space, <span style="color: #007bff; font-weight: bold;">a handful of mental models
-and metaphors can equip readers comfortable with the basics to understand the research frontier</span>.
+ideas in this space, <span style="color: #007bff">**a handful of mental models
+and metaphors can equip readers comfortable with the basics to understand the research frontier**</span>.
 
 To this end, we hope to explore the following ideas in this and future articles. (Don't worry if
 many of these terms don't make sense yet!)
 
-* Transformer models as <span style="color: #2ecc71; font-style: italic;">defining information flow through a grid graph</span>
-* <span style="color: #2ecc71; font-style: italic;">*Residual streams*</span> as <span style="color: #2ecc71; font-style: italic;">fixed-bandwidth information highways</span>
-* "Residual actors" as <span style="color: #2ecc71; font-style: italic;">collaborating actors with immediate and long-term goals</span>
-* Ordinary Attention as a particular implementation of an <span style="color: #2ecc71; font-style: italic;">abstract interface for cross-stream
-  causal communication</span>
-* QK and OV circuits as determinants of *where* information flows and *what* information flows respectively
-* Attention Heads as <span style="color: #2ecc71; font-style: italic;">low-rank, additive updates</span> that write into subspaces of the
+* <span style="color: #007bff">**Transformer models**</span> as <span style="color: #2ecc71;">*defining information flow through a grid graph*</span>
+* <span style="color: #007bff">**Residual streams**</span> as <span style="color: #2ecc71;">*fixed-bandwidth information highways*</span>
+* <span style="color: #007bff">**Transformer layers**</span> as a sequence of <span style="color: #2ecc71;">*collaborating actors with immediate and long-term goals*</span>
+* <span style="color: #007bff">**Ordinary Attention**</span> as a particular implementation of an <span style="color: #2ecc71;">*abstract interface for cross-stream
+  causal communication*</span>
+* <span style="color: #007bff">**QK and OV circuits**</span> as determinants of <span style="color: #2ecc71;">*where* information flows and <span style="color: #2ecc71;">*what* information flows respectively
+* <span style="color: #007bff">**Attention Heads**</span> as <span style="color: #2ecc71;">*low-rank, additive updates*</span> that write into subspaces of the
   residual stream
-* Several attention variants as <span style="color: #2ecc71; font-style: italic"> connectivity-preserving static or dynamic
-  sparsification</span> of the underlying information-flow graph
-* Kernelized attention as defining a <span style="color: #2ecc71; font-style: italic;">factor graph</span> mediating cross-stream communication
+* <span style="color: #007bff">**Several attention variants**</span> as <span style="color: #2ecc71;"> *connectivity-preserving static or dynamic
+  sparsification*</span> of the underlying information-flow graph
+* <span style="color: #007bff">**Kernelized Attention** as defining a <span style="color: #2ecc71;">*factor graph*</span> mediating cross-stream communication
 
 ---
 
@@ -103,7 +103,7 @@ its residual stream.
    <span style="color: #007bff; font-weight: bold;">**positional embedding**</span> $p_t$. 
 
 2. Each layer computes an update that is <span style="color: #007bff; font-weight: bold;">added</span> to the stream - hence the term
-   <span style="color: #2ecc71; font-style: italic;">residual</span>. The token's representation evolves through a sequence of intermediate states
+   <span style="color: #2ecc71;">residual</span>. The token's representation evolves through a sequence of intermediate states
    $x_{t,0}, x_{t,1}, \ldots, x_{t,L}$.
 
 3. At the final layer, the representation is multiplied by the unembedding matrix to produce logits
@@ -176,16 +176,16 @@ import?
 These questions correspond directly to the roles played by keys, queries, and values.
 
 * <span style="color: #007bff;">**Key ($k_u$)**</span>: each earlier actor $(u, l)$ emits a key vector $k_u$ that broadcasts
-  <span style="color: #2ecc71; font-style: italic;">"this is the kind of information I have"</span>.
+  <span style="color: #2ecc71;">"this is the kind of information I have"</span>.
 
-* <span style="color: #007bff;">**Query ($q_t$)**</span>: we emit a query vector $q_t$ that encodes <span style="color: #2ecc71; font-style: italic;">what kind of information we
+* <span style="color: #007bff;">**Query ($q_t$)**</span>: we emit a query vector $q_t$ that encodes <span style="color: #2ecc71;">what kind of information we
   want</span>.
 
 * <span style="color: #007bff;">**Value ($v_u$)**</span>: each earlier actor also emits a value vector containing the actual
-  <span style="color: #2ecc71; font-style: italic;">information payload</span> it provides if we select it.
+  <span style="color: #2ecc71;">information payload</span> it provides if we select it.
 
 * We use our query to score the relevance of each of the $t$ keys $k_1, k_2, \ldots, k_t$, and construct a
-  <span style="color: #2ecc71; font-style: italic;">weighted average</span> of the associated values.
+  <span style="color: #2ecc71;">weighted average</span> of the associated values.
 
 In pseudocode:
 
@@ -212,8 +212,8 @@ parallel.
 Below are a few important implications of the attention mechanism on how information flows through a
 transformer model. 
 
-* <span style="color: #007bff; font-weight: bold;">**Separation of concerns.**</span> Queries and keys decide <span style="color: #2ecc71; font-style: italic;">where to read</span>; values and $W_O$
-  determine <span style="color: #2ecc71; font-style: italic;">what to write</span>. In interpretability terms, this separation is described as
+* <span style="color: #007bff; font-weight: bold;">**Separation of concerns.**</span> Queries and keys decide <span style="color: #2ecc71;">where to read</span>; values and $W_O$
+  determine <span style="color: #2ecc71;">what to write</span>. In interpretability terms, this separation is described as
   <span style="color: #007bff; font-weight: bold;">**QK and OV circuits**</span>. 
 
 * <span style="color: #007bff; font-weight: bold;">**Linearity Modulo Attention Pattern.**</span> The only source of nonlinearity comes from the softmax
@@ -472,7 +472,7 @@ Notable techniques and papers: sliding windows and global
 nodes ([Longformer](https://arxiv.org/abs/2004.05150)), dilations and block patterns ([BigBird](https://arxiv.org/abs/2007.14062), [H-Transformer-1D](https://arxiv.org/abs/2107.11906)), strided/block-sparse layouts ([Sparse Transformer](https://arxiv.org/abs/1904.10509)), star-shaped global hubs ([Star-Transformer](https://arxiv.org/abs/1902.09113)), and hierarchical dilations across layers ([LongNet](https://arxiv.org/abs/2307.02486)).
 
 ### <span style="color: #007bff; font-weight: bold;">**9.2 Dynamic Sparsification and Routing**</span>
-Problem: static sparsification is <span style="color: #2ecc71; font-style: italic;">content-blind</span>, and involves potentially imbuing models with our imperfect structural priors about sequence modeling. An arguably
+Problem: static sparsification is <span style="color: #2ecc71;">content-blind</span>, and involves potentially imbuing models with our imperfect structural priors about sequence modeling. An arguably
 more "[bitter lesson](http://www.incompleteideas.net/IncIdeas/BitterLesson.html)-pilled" idea is *dynamic* sparsity: let the model decide what edges
 matter based on the content of the sequence being processed, thereby constructing $N(t, l)$
 dynamically per-token.
